@@ -84,7 +84,7 @@ try:
     import faiss.contrib.torch_utils
 except ImportError:
     pass
-from transformers import AutoModel, AutoProcessor
+from transformers import AutoModel, CLIPImageProcessor
 
 
 class WikipediaKnowledgeBaseEntry:
@@ -102,19 +102,44 @@ class WikipediaKnowledgeBaseEntry:
 
 
 class ClipRetriever:
-    """Step 1 Image-to-Summary Retriever with CLIP ViT-Large/14."""
-    def __init__(self, model_name="openai/clip-vit-large-patch14", device="cuda:0"):
+    """Step 1 Image-to-Summary Retriever with EVA-CLIP (1280-dim) on cuda:0."""
+    def __init__(self, model_type="eva-clip", device="cuda:0"):
         self.device = device
-        print(f"Loading CLIP model: {model_name} on {device}...")
-        self.model = AutoModel.from_pretrained(model_name, torch_dtype=torch.float16)
-        # Avoid unnecessary memory usage by deleting text tower
-        if hasattr(self.model, "text_projection"):
-            del self.model.text_projection
-        if hasattr(self.model, "text_model"):
-            del self.model.text_model
+        self.model_type = model_type
+        print(f"Loading retriever model: {model_type} onto {device}...")
         
-        self.model.to(self.device).eval()
-        self.processor = AutoProcessor.from_pretrained(model_name)
+        # Dedicated image processor
+        self.processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-large-patch14")
+        
+        if model_type == "eva-clip":
+            # 1. Load onto CPU first so we can strip the text model before touching GPU
+            self.model = AutoModel.from_pretrained(
+                "BAAI/EVA-CLIP-8B",
+                torch_dtype=torch.float16,
+                trust_remote_code=True,
+            )
+            # 2. Delete text components to reduce VRAM from 15GB down to ~8.8GB (vision only)
+            if hasattr(self.model, "text_projection"):
+                del self.model.text_projection
+            if hasattr(self.model, "text_model"):
+                del self.model.text_model
+            
+            # 3. Move strictly to cuda:0 so all layers and post_layernorm remain on the same device
+            self.model.to(self.device).eval()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        else:
+            self.model = AutoModel.from_pretrained(
+                "openai/clip-vit-large-patch14",
+                torch_dtype=torch.float16,
+            )
+            if hasattr(self.model, "text_projection"):
+                del self.model.text_projection
+            if hasattr(self.model, "text_model"):
+                del self.model.text_model
+            self.model.to(self.device).eval()
+            
+        print(f"Model successfully loaded on: {self.device}")
         self.knowledge_base = []
         self.entity_faiss_index = None
 
@@ -128,36 +153,32 @@ class ClipRetriever:
 
     def load_entity_faiss_index(self, index_path):
         print(f"Loading FAISS index from {index_path}...")
-        index = faiss.read_index(index_path)
-        # If GPU faiss is available, move index to GPU for maximum retrieval speed
-        if hasattr(faiss, "StandardGpuResources") and "cuda" in self.device:
-            try:
-                res = faiss.StandardGpuResources()
-                index = faiss.index_cpu_to_gpu(res, 0, index)
-                print("FAISS index loaded on GPU.")
-            except Exception as e:
-                print(f"Warning: GPU FAISS initialization skipped ({e}). Using CPU FAISS.")
-        else:
-            print("FAISS index loaded on CPU.")
-        self.entity_faiss_index = index
-        print(f"FAISS index ready with {self.entity_faiss_index.ntotal:,} indexed vectors.")
+        self.entity_faiss_index = faiss.read_index(index_path)
+        print(f"FAISS index ready on CPU with {self.entity_faiss_index.ntotal:,} vectors (dim={self.entity_faiss_index.d}).")
 
     @torch.no_grad()
     def I2T_faiss(self, image: PIL.Image.Image, top_k: int = 20):
         """Retrieve top-K most similar Wikipedia article summaries using query image."""
-        inputs = self.processor(images=image, return_tensors="pt").pixel_values.to(self.device).half()
-        image_score = self.model.get_image_features(inputs)
+        inputs = self.processor(images=image, return_tensors="pt")
+        pixel_values = inputs.pixel_values.to(self.device).half()
+        
+        if self.model_type == "eva-clip":
+            image_score = self.model.encode_image(pixel_values)
+        else:
+            image_score = self.model.get_image_features(pixel_values=pixel_values)
+            if hasattr(image_score, "pooler_output") and image_score.pooler_output is not None:
+                image_score = image_score.pooler_output
+            elif hasattr(image_score, "image_embeds") and image_score.image_embeds is not None:
+                image_score = image_score.image_embeds
+            elif not isinstance(image_score, torch.Tensor):
+                image_score = image_score[0]
+
         query = image_score.float()
         query = torch.nn.functional.normalize(query, dim=-1)
 
-        if hasattr(self.entity_faiss_index, "search"):
-            # Check if index accepts PyTorch CUDA tensors or numpy arrays
-            try:
-                D, I = self.entity_faiss_index.search(query, top_k)
-            except (TypeError, AssertionError):
-                D, I = self.entity_faiss_index.search(query.cpu().numpy().astype("float32"), top_k)
-        else:
-            raise RuntimeError("FAISS index not loaded.")
+        # Convert to numpy for stable CPU FAISS search (zero GPU VRAM usage for search)
+        query_np = query.detach().cpu().numpy().astype("float32")
+        D, I = self.entity_faiss_index.search(query_np, top_k)
 
         top_k_entries = []
         for i in range(top_k):
@@ -219,7 +240,7 @@ RETRIEVAL_TOP_K = 20
 TOP_KS = [1, 5, 10, 20]
 
 # 1. Initialize Retriever
-retriever = ClipRetriever(model_name="openai/clip-vit-large-patch14", device=device)
+retriever = ClipRetriever(model_type="eva-clip", device=device)
 retriever.load_knowledge_base(KB_PATH)
 retriever.load_entity_faiss_index(FAISS_INDEX_PATH)
 
