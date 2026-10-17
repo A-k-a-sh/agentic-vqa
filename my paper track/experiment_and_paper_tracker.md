@@ -25,7 +25,7 @@ To ensure scientific honesty and fairness, we evaluated on a fixed subset of 1,0
 | **Knowledge Base** | 100,000 Wikipedia Articles with Section Segmentation | `wiki_100_dict_v4.json` (HuggingFace Mirror) |
 | **Test Questions** | 1,000 Sampled InfoSeek Test Queries | `pre helper/files/infoseek_test_sample_1000.csv` |
 | **Query Images** | 983 Unique Query Images (`oven_*.jpg`) | `/kaggle/input/.../infoseek_val_1000_images/` |
-| **Candidate Images** | 20,199 Sanitized Wikipedia Entity Images (max 3/entity) | `candidate_wiki_images_max3.csv` & `wiki_imgs/` |
+| **Candidate Images** | 20,199 Sanitized Wikipedia Entity Images (max 3/entity) | [`pre helper/files/candidate_wiki_images_max3.csv`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/files/candidate_wiki_images_max3.csv) & `wiki_imgs/` |
 | **Reranker Checkpoint** | Pretrained Q-Former IT2IT Reranker (`model_23912.pth`, 2.3 GB) | `reranker_model.pth/reranker_model.pth/model_23912.pth` |
 | **Hardware** | Kaggle Single GPU (NVIDIA T4 16GB / P100 16GB, CUDA 12) | Standard Free-Tier Environment |
 

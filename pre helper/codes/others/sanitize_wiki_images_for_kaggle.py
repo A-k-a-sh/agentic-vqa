@@ -213,7 +213,7 @@ def run_sanity_check(img_dir: str, csv_path: str):
 
 if __name__ == "__main__":
     img_dir = "others/files/wiki_imgs"
-    backup_csv = "pre helper/res/candidate_wiki_images_max3_backup.csv"
-    output_csv = "pre helper/res/candidate_wiki_images_max3.csv"
-    mapping_csv = "pre helper/res/candidate_wiki_images_max3_mapping.csv"
+    backup_csv = "pre helper/files/candidate_wiki_images_max3_backup.csv"
+    output_csv = "pre helper/files/candidate_wiki_images_max3.csv"
+    mapping_csv = "pre helper/files/candidate_wiki_images_max3_mapping.csv"
     process_disk_and_csv(img_dir, backup_csv, output_csv, mapping_csv)
