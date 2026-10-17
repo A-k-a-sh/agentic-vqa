@@ -4,9 +4,5 @@
 
 node_modules/
 
-others
-others/*
-
-
-prev paper and code
-prev paper and code/*
+/others/
+/prev paper and code/

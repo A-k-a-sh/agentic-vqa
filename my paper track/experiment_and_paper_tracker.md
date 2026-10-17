@@ -121,11 +121,11 @@ Kaggle updated its base Python environment to **Python 3.13**, where legacy `pip
 | File / Artifact | Location in Repository | Description |
 | :--- | :--- | :--- |
 | **Test Questions (1k)** | [`pre helper/files/infoseek_test_sample_1000.csv`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/files/infoseek_test_sample_1000.csv) | Ground-truth sampled evaluation queries |
-| **Step 1 Coarse Code** | [`pre helper/codes/kaggle_step1_run_and_extract_images.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/codes/kaggle_step1_run_and_extract_images.ipynb) | Notebook for Step 1 FAISS search & image extraction |
-| **Step 2 Rerank Code** | [`pre helper/codes/kaggle_step2_it2it_rerank.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/codes/kaggle_step2_it2it_rerank.ipynb) | Notebook for Step 2 Q-Former IT2IT cross-attention |
-| **Step 2 Standalone Script**| [`pre helper/codes/kaggle_step2_it2it_rerank.py`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/codes/kaggle_step2_it2it_rerank.py) | Python CLI script with complete compatibility bridge |
+| **Step 1 Coarse Code** | [`pre helper/codes/step 1/kaggle_step1_run_and_extract_images.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/codes/step%201/kaggle_step1_run_and_extract_images.ipynb) | Notebook for Step 1 FAISS search & image extraction |
+| **Step 2 Rerank Code** | [`pre helper/codes/step 2/kaggle_step2_it2it_rerank.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/codes/step%202/kaggle_step2_it2it_rerank.ipynb) | Notebook for Step 2 Q-Former IT2IT cross-attention |
+| **Step 2 Standalone Script**| [`pre helper/codes/step 2/kaggle_step2_it2it_rerank.py`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/codes/step%202/kaggle_step2_it2it_rerank.py) | Python CLI script with complete compatibility bridge |
 | **Step 2 Result JSON (Verified)** | [`pre helper/res/result_step2.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/res/result_step2.json) | High-fidelity reranked candidates and blended scores (59.10% R@1, 7.50 MB) |
-| **Step 3 Code** | [`pre helper/codes/kaggle_step3_answer_generation.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/codes/kaggle_step3_answer_generation.ipynb) | Section selection + LLaVA-1.5-7B VQA generation |
+| **Step 3 Code** | [`pre helper/codes/step 3/kaggle_step3_answer_generation.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/codes/step%203/kaggle_step3_answer_generation.ipynb) | Section selection + LLaVA-1.5-7B VQA generation |
 | **Project Master Plan** | [`others/plan and guidence/plan_init.md`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/others/plan%20and%20guidence/plan_init.md) | Architectural roadmap and design decisions |
 
 ---
