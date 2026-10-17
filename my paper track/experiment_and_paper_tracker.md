@@ -50,53 +50,53 @@ To ensure scientific honesty and fairness, we evaluated on a fixed subset of 1,0
 #### Step 2: Fine-Grained Multimodal Reranking (w. Reranking)
 *Top-20 candidates $\rightarrow$ Q-Former IT2IT cross-attention (image+question vs image+sections) $\rightarrow$ Blended score ($\alpha = 0.9$)*
 
-| Metric | OMGM Paper (Table 2) <br> *(Full InfoSeek Benchmark)* | Our Reproduction <br> *(1,000 InfoSeek Test Queries)* | Delta vs. Paper | Status |
-| :--- | :---: | :---: | :---: | :---: |
-| **Recall@1** | 64.0% | **55.40%** (554 / 1,000) | -8.6% *(compact image pool)* | **Strong Gain (+5.9% to +36% over coarse)** |
-| **Recall@5** | 80.8% | **71.10%** (711 / 1,000) | -9.7% | **Consistent Trend** |
-| **Recall@10** | 83.6% | **73.00%** (730 / 1,000) | -10.6% | **Consistent Trend** |
-| **Recall@20** | **84.8%** | **83.40%** (834 / 1,000) | **-1.4%** | **Virtually Exact Ceiling Match** |
+| Metric | OMGM Paper (Table 2) <br> *(Full InfoSeek Benchmark)* | Our Initial Run <br> *(Compact Image Pool)* | Our Full Image-Walk Run (`result_step2.json`) <br> *(Full 91.2% Image Coverage)* | Delta vs. Paper | Status |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Recall@1** | 64.0% | 55.40% (554 / 1,000) | **59.10%** (591 / 1,000) | **-4.9%** | **Strong Gain (+9.6% over coarse)** |
+| **Recall@5** | 80.8% | 71.10% (711 / 1,000) | **76.70%** (767 / 1,000) | **-4.1%** | **Very Close Reproduction** |
+| **Recall@10** | 83.6% | 73.00% (730 / 1,000) | **79.30%** (793 / 1,000) | **-4.3%** | **Very Close Reproduction** |
+| **Recall@20** | **84.8%** | **83.40%** (834 / 1,000) | **83.40%** (834 / 1,000) | **-1.4%** | **Virtually Exact Ceiling Match** |
 
 ---
 
 #### Stage-by-Stage Precision Growth Comparison
 
-| Stage | OMGM Paper Recall@1 | Our Run Recall@1 | Key Observation |
-| :--- | :---: | :---: | :--- |
-| **Step 1 (Coarse)** | 52.6% | 49.5% | Strong coarse candidate retrieval in top-20 |
-| **Step 2 (Reranked)** | 64.0% (+11.4%) | 55.4% (+5.9%) | Multimodal cross-attention boosts top-1 precision |
+| Stage | OMGM Paper Recall@1 | Our Initial Run Recall@1 | Our Full Image-Walk Run Recall@1 | Key Observation |
+| :--- | :---: | :---: | :---: | :--- |
+| **Step 1 (Coarse)** | 52.6% | 49.5% | 49.5% | Strong coarse candidate retrieval in top-20 |
+| **Step 2 (Reranked)** | 64.0% (+11.4%) | 55.4% (+5.9%) | **59.10% (+9.6%)** | Deep image matching drives top-1 precision within 4.9% of paper |
 
 ### 3.2 Performance Takeaways
 1. **Near-Perfect Ceiling Match:** Our Recall@20 reached **83.40%**, falling within **1.4%** of the original paper's reported **84.8%**. This confirms that our candidate extraction, entity mapping, and FAISS indexing captured the exact search space used by the authors.
-2. **Massive Step 2 Precision Jump:** Step 2 cross-attention reranking boosted Recall@1 from the coarse baseline to **55.40%**, validating the paper's core hypothesis that multimodal section and image alignment sharply separates the true entity from false positives.
-3. **Execution Runtime:** Total run time on Kaggle GPU for 1,000 queries was **12,593.6 seconds (~3.5 hours, 12.59s per query)** with batch size `rerank_step = 32`.
+2. **Impact of Full Image Matching:** By recursively resolving entity folder paths (`os.walk` across all shards), candidate image coverage increased to 91.15%, driving Recall@1 from **55.40% to 59.10%** (+37 queries) and Recall@5 to **76.70%**.
+3. **Execution Runtime:** Total run time on Kaggle GPU for 1,000 queries was **~3.5 hours (~12.5s per query)** with batch size `rerank_step = 32`.
 
 ---
 
 ## 4. Groundbreaking Empirical Motivation: Failure Taxonomy
 
-Before designing our agent controller, we performed the evidence-first failure audit across all 1,000 queries using [`pre helper/res/res_step2.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/res/res_step2.json):
+Before designing our agent controller, we performed the evidence-first failure audit across all 1,000 queries using our verified baseline [`pre helper/res/result_step2.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/res/result_step2.json):
 
 ```
 Total Test Queries: 1,000
 
-├── Top-1 Correct:                       554 queries (55.40%)
-│   └── Mean Top-1 Confidence Margin:    0.0521
+├── Top-1 Correct:                       591 queries (59.10%)
+│   └── Mean Top-1 Confidence Margin:    0.0512
 │
-├── Category B Failure (Rerank Error):    280 queries (28.00%)
+├── Category B Failure (Rerank Error):    243 queries (24.30%)
 │   ├── Correct entity WAS in Top-20, but ranked > 1
-│   └── Mean Top-1 Confidence Margin:    0.0174  (3x Drop in Confidence!)
+│   └── Mean Top-1 Confidence Margin:    0.0155  (3.3x Drop in Confidence!)
 │
 └── Category A Failure (Ceiling Error):   166 queries (16.60%)
     └── Correct entity NOT in Top-20 at all
 ```
 
 ### Key Scientific Findings for Our Paper:
-1. **Category B Dominates Category A (28.0% vs. 16.6%):**  
-   In 280 queries out of 1,000, **OMGM's Step 1 had already retrieved the correct Wikipedia entity**, but Step 2 failed to place it at rank #1! This is empirical proof that the rigid single-pass pipeline discards recoverable candidates.
-2. **The 3x Score Margin Signal ($\Delta = S_1 - S_2$):**  
-   - When the top-1 prediction is **correct**, the score gap between rank 1 and rank 2 is large: **$\Delta_{avg} = 0.0521$**.  
-   - When the top-1 prediction is a **Category B failure**, the score gap collapses to **$\Delta_{avg} = 0.0174$** (a **3.0x drop**).  
+1. **Category B Dominates Category A (24.3% vs. 16.6%):**  
+   In 243 queries out of 1,000, **OMGM's Step 1 had already retrieved the correct Wikipedia entity**, but Step 2 failed to place it at rank #1! This is empirical proof that the rigid single-pass pipeline discards recoverable candidates.
+2. **The 3.3x Score Margin Signal ($\Delta = S_1 - S_2$):**  
+   - When the top-1 prediction is **correct**, the score gap between rank 1 and rank 2 is large: **$\Delta_{avg} = 0.0512$**.  
+   - When the top-1 prediction is a **Category B failure**, the score gap collapses to **$\Delta_{avg} = 0.0155$** (a **3.3x drop**).  
    - **Conclusion:** We do **not** need an expensive LLM router. A simple mathematical threshold $\tau \approx 0.025$ on the score margin provides an accurate, zero-cost trigger to launch verification and retry mechanisms!
 
 ---
@@ -124,7 +124,8 @@ Kaggle updated its base Python environment to **Python 3.13**, where legacy `pip
 | **Step 1 Coarse Code** | [`pre helper/codes/kaggle_step1_run_and_extract_images.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/codes/kaggle_step1_run_and_extract_images.ipynb) | Notebook for Step 1 FAISS search & image extraction |
 | **Step 2 Rerank Code** | [`pre helper/codes/kaggle_step2_it2it_rerank.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/codes/kaggle_step2_it2it_rerank.ipynb) | Notebook for Step 2 Q-Former IT2IT cross-attention |
 | **Step 2 Standalone Script**| [`pre helper/codes/kaggle_step2_it2it_rerank.py`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/codes/kaggle_step2_it2it_rerank.py) | Python CLI script with complete compatibility bridge |
-| **Step 2 Result JSON** | [`pre helper/res/res_step2.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/res/res_step2.json) | Reranked candidates and blended scores (8.52 MB) |
+| **Step 2 Result JSON (Verified)** | [`pre helper/res/result_step2.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/res/result_step2.json) | High-fidelity reranked candidates and blended scores (59.10% R@1, 7.50 MB) |
+| **Step 3 Code** | [`pre helper/codes/kaggle_step3_answer_generation.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/codes/kaggle_step3_answer_generation.ipynb) | Section selection + LLaVA-1.5-7B VQA generation |
 | **Project Master Plan** | [`others/plan and guidence/plan_init.md`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/others/plan%20and%20guidence/plan_init.md) | Architectural roadmap and design decisions |
 
 ---
