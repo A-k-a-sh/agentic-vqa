@@ -220,13 +220,16 @@ Sweep of trigger threshold $\tau \in [0.000, 1.000]$ isolating the exact empiric
 | **Agentic Recovery Log**   | [`my paper implementation/results/controller/agentic_recovered_queries.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller/agentic_recovered_queries.json) | Detailed event log of all 38 recovered queries with old/new predictions |
 | **Threshold Sensitivity JSON**| [`my paper implementation/results/controller/ablation_threshold_sensitivity.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller/ablation_threshold_sensitivity.json) | Complete sweep across 10 threshold values from tau=0.000 to tau=inf |
 | **Routing Strategy JSON** | [`my paper implementation/results/controller/ablation_routing_strategy.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller/ablation_routing_strategy.json) | Ablation comparing Rigid Baseline, Naive Prompting, and De-biased Routing |
+| **Qwen2-VL Controller Script** | [`my paper implementation/codes/kaggle_agentic_controller_qwen.py`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/codes/kaggle_agentic_controller_qwen.py) | Standalone Qwen2-VL Agentic Controller with Unsloth / HF fallback + device_map="auto" |
+| **Qwen2-VL Controller Notebook** | [`my paper implementation/codes/kaggle_agentic_controller_qwen.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/codes/kaggle_agentic_controller_qwen.ipynb) | Cell-by-cell Kaggle notebook for Qwen2-VL evaluation |
 | **Project Master Plan** | [`others/plan and guidence/plan_init.md`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/others/plan%20and%20guidence/plan_init.md) | Architectural roadmap and design decisions |
 
 ---
 
 ## 9. Next Steps: Cross-Model Generalization with Qwen2-VL & Paper Writing
 
-1. **Qwen2-VL-7B Cross-Model Evaluation:**
-   - Test whether our adaptive agent controller generalizes to a modern vision-language backbone (`Qwen/Qwen2-VL-7B-Instruct`).
+1. **Qwen2-VL-7B Cross-Model Evaluation (Ready to Run):**
+   - Script and Notebook prepared: [`kaggle_agentic_controller_qwen.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/codes/kaggle_agentic_controller_qwen.ipynb).
+   - Features: Unsloth `FastVisionModel` (4-bit), `device_map="auto"`, dynamic resolution capping (`min_pixels=256*28*28`, `max_pixels=512*512`), BGE section reranking in FP16, and OMGM standard evaluation.
 2. **Drafting Paper Section 4 (Method) & Section 5 (Experiments):**
    - Write LaTeX draft using standard ACL/EMNLP template incorporating Tables 1, 2, and 3.
