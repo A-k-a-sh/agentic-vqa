@@ -1,0 +1,16 @@
+{
+  "model": "Qwen/Qwen2-VL-7B-Instruct",
+  "backend": "Transformers Qwen2VL (4-bit BnB, device_map=auto)",
+  "tau": 0.025,
+  "total_queries": 1000,
+  "ambiguous_queries": 508,
+  "fast_path_queries": 492,
+  "fast_path_ratio": 0.492,
+  "baseline_accuracy": 35.699999999999996,
+  "agentic_accuracy": 39.5,
+  "net_gain": 3.8000000000000043,
+  "net_recovered_queries": 38,
+  "cat_b_recoveries": 34,
+  "cat_c_recoveries": 4,
+  "execution_time_seconds": 1282.6436216831207
+}
