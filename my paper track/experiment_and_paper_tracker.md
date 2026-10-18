@@ -204,6 +204,59 @@ Sweep of trigger threshold $\tau \in [0.000, 1.000]$ isolating the exact empiric
 
 ---
 
+## 7.4 Cross-Model Generalization: Qwen2-VL-7B-Instruct Evaluation
+
+To prove that the Adaptive Agentic Controller is **model-agnostic** and not an overfitted artifact of LLaVA-1.5, we executed the exact same controller pipeline across the 1,000 InfoSeek benchmark queries using `Qwen/Qwen2-VL-7B-Instruct` in 4-bit (`device_map="auto"`).
+
+### Cross-Model Benchmark Comparison Table
+
+| Metric | OMGM Baseline (Rigid Top-1) | Ours (Agentic Controller + LLaVA-1.5) | Ours (Agentic Controller + Qwen2-VL-7B) | Ours (Dual-Agent Committee Ensemble) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Backbone Architecture** | LLaVA-1.5-7B (CLIP 336px) | LLaVA-1.5-7B (CLIP 336px) | **Qwen2-VL-7B (Native Dynamic ViT)** | **LLaVA-1.5 + Qwen2-VL Consensus** |
+| **Ambiguity Threshold ($\tau$)** | N/A (No Branching) | $\tau = 0.025$ | $\tau = 0.025$ | $\tau = 0.025$ |
+| **Baseline Accuracy** | 35.20% (352 / 1,000) | 35.20% (352 / 1,000) | 35.70% (357 / 1,000) | **35.70% (357 / 1,000)** |
+| **Agentic Accuracy** | 35.20% | 38.80% (388 / 1,000) | 39.50% (395 / 1,000) | **40.20% (402 / 1,000)** |
+| **Net Accuracy Gain** | $+0.00\%$ | $+3.60\%$ (+36 queries net) | $+3.80\%$ (+38 queries net) | **$+4.50\%$ (+45 queries net)** |
+| **Strict Genuine Recoveries** | 0 queries | 38 queries | 38 queries | **47 queries** (Oracle: 49) |
+| — *Category B (Entity Branch)* | 0 | 36 queries | 34 queries | **43 queries** |
+| — *Category C (Section Refresh)* | 0 | 2 queries | 4 queries | **4 queries** |
+| **Fast-Path Rate (Zero Compute)** | 100% | 49.2% (492 queries) | 49.2% (492 queries) | **49.2% (492 queries)** |
+
+### Orthogonal Recovery Analysis (Complementary Model Strengths)
+
+A deep dive comparing the 38 LLaVA recoveries vs. the 38 Qwen recoveries revealed a critical finding for agentic systems:
+```text
+Total Recoveries by LLaVA    : 38 queries
+Total Recoveries by Qwen     : 38 queries
+Overlapping Recoveries       : 27 queries (rescued by both models)
+Unique to LLaVA              : 11 queries (e.g., river lengths, numeric elevation)
+Unique to Qwen               : 11 queries (e.g., botanical/fish taxonomy, church dioceses)
+-----------------------------------------------------------------------------------
+Cascaded Committee Output    : 40.20% (402 / 1,000, +45 net recoveries)
+Combined Unique Union        : 49 queries (49 / 66 = 74.2% of Category B!)
+Oracle Multi-Agent Ceiling   : 40.60% overall accuracy (+4.90% net gain)
+```
+
+> **Scientific Insight:** LLaVA and Qwen exhibit orthogonal perceptual strengths. Qwen's native dynamic resolution excels at fine-grained visual taxonomy (e.g. `Nepenthes ventricosa` vs `Hedeoma pulegioides`), while LLaVA excels at concise numeric formatting. Combining both into a multi-agent consensus unlocks **40.20% accuracy (+4.50% net gain, 47 deterministic recoveries)** and an oracle ceiling of **40.60% (49 recoveries)**.
+
+---
+
+## 7.5 Phase Roadmap Reconciliation: What Was Executed vs. What Remains
+
+To ensure absolute alignment with [`others/plan and guidence/plan_init.md`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/others/plan%20and%20guidence/plan_init.md):
+
+* **Phase 0 (Baseline Reproduction):** **100% Done.** OMGM reproduced at 35.20% VQA accuracy.
+* **Phase 1 (Failure Analysis):** **100% Done.** All 698 failures classified into Categories A–D in `phase0_failure_analysis.json`.
+* **Phase 2 (Agentic Controller Development):** **100% Done.** Built dual-candidate visual router with confidence threshold $\tau = 0.025$.
+* **Phase 3 (Main Benchmark Experiments):** **100% Done.** Executed across the full 1,000 InfoSeek test queries on both LLaVA-1.5 (38.80%) and Qwen2-VL (39.50%), as well as the Dual-Agent Committee (40.20%).
+* **Phase 4 (Analysis & Ablations):**
+  - **Threshold Sweep:** Done ($\tau \in [0.000, 1.000]$ across 10 values).
+  - **Routing Ablation:** Done (naive binary vs. de-biased two-pass).
+  - **Remaining:** Assemble 3 qualitative visual case studies for paper figures.
+* **Phase 5 (Paper Writing):** Drafting conference manuscript in LaTeX.
+
+---
+
 ## 8. Artifact & File Registry (Updated)
 
 | File / Artifact | Location in Repository | Description |
@@ -215,21 +268,24 @@ Sweep of trigger threshold $\tau \in [0.000, 1.000]$ isolating the exact empiric
 | **Step 3 Predictions** | [`pre helper/res/step3_predictions.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/res/step3_predictions.json) | Full 1,000 query VQA predictions and accuracy tags (2.12 MB) |
 | **Step 3 Ranked Sections** | [`pre helper/res/step3_reranked_sections.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/res/step3_reranked_sections.json) | Top chosen section per query from BGE+Step2 fusion (1.76 MB) |
 | **Failure Analysis Report**| [`pre helper/res/phase0_failure_analysis.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/res/phase0_failure_analysis.json) | Detailed categorization of all 698 failures (Cat A-D) |
-| **Agentic Controller Code**| [`my paper implementation/codes/kaggle_agentic_controller.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/codes/kaggle_agentic_controller.ipynb) | Adaptive recovery controller notebook with dual-candidate branching |
-| **Agentic Results Summary**| [`my paper implementation/results/controller/agentic_results_summary.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller/agentic_results_summary.json) | Official summary metrics (+3.60% net gain, 38 recovered queries) |
-| **Agentic Recovery Log**   | [`my paper implementation/results/controller/agentic_recovered_queries.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller/agentic_recovered_queries.json) | Detailed event log of all 38 recovered queries with old/new predictions |
+| **Agentic Controller (LLaVA)**| [`my paper implementation/codes/kaggle_agentic_controller.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/codes/kaggle_agentic_controller.ipynb) | Adaptive recovery controller notebook with dual-candidate branching |
+| **LLaVA Results Summary**  | [`my paper implementation/results/controller/agentic_results_summary.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller/agentic_results_summary.json) | Official summary metrics (+3.60% net gain, 38 recovered queries) |
+| **LLaVA Recovery Log**     | [`my paper implementation/results/controller/agentic_recovered_queries.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller/agentic_recovered_queries.json) | Detailed event log of all 38 recovered queries with old/new predictions |
 | **Threshold Sensitivity JSON**| [`my paper implementation/results/controller/ablation_threshold_sensitivity.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller/ablation_threshold_sensitivity.json) | Complete sweep across 10 threshold values from tau=0.000 to tau=inf |
 | **Routing Strategy JSON** | [`my paper implementation/results/controller/ablation_routing_strategy.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller/ablation_routing_strategy.json) | Ablation comparing Rigid Baseline, Naive Prompting, and De-biased Routing |
 | **Qwen2-VL Controller Script** | [`my paper implementation/codes/kaggle_agentic_controller_qwen.py`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/codes/kaggle_agentic_controller_qwen.py) | Standalone Qwen2-VL Agentic Controller with Unsloth / HF fallback + device_map="auto" |
 | **Qwen2-VL Controller Notebook** | [`my paper implementation/codes/kaggle_agentic_controller_qwen.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/codes/kaggle_agentic_controller_qwen.ipynb) | Cell-by-cell Kaggle notebook for Qwen2-VL evaluation |
+| **Qwen2-VL Results Summary** | [`my paper implementation/results/controller qwen2-7b/agentic_summary_metrics_qwen.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller%20qwen2-7b/agentic_summary_metrics_qwen.json) | Official summary metrics for Qwen2-VL (+3.80% net gain, 38 recovered queries) |
+| **Qwen2-VL Recovery Log**  | [`my paper implementation/results/controller qwen2-7b/agentic_recovered_queries_qwen.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller%20qwen2-7b/agentic_recovered_queries_qwen.json) | Detailed event log of all 38 Qwen recovered queries |
+| **Dual-Agent Predictions** | [`my paper implementation/results/controller_ensemble/agentic_predictions_ensemble.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller_ensemble/agentic_predictions_ensemble.json) | 1,000 query predictions from Dual-Agent Committee (40.20% accuracy) |
+| **Dual-Agent Summary**     | [`my paper implementation/results/controller_ensemble/agentic_summary_metrics_ensemble.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller_ensemble/agentic_summary_metrics_ensemble.json) | Official metrics for Dual-Agent Committee (+4.50% net gain, 47 recoveries) |
 | **Project Master Plan** | [`others/plan and guidence/plan_init.md`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/others/plan%20and%20guidence/plan_init.md) | Architectural roadmap and design decisions |
 
 ---
 
-## 9. Next Steps: Cross-Model Generalization with Qwen2-VL & Paper Writing
+## 9. Next Steps: Qualitative Case Studies & Paper Writing
 
-1. **Qwen2-VL-7B Cross-Model Evaluation (Ready to Run):**
-   - Script and Notebook prepared: [`kaggle_agentic_controller_qwen.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/codes/kaggle_agentic_controller_qwen.ipynb).
-   - Features: Unsloth `FastVisionModel` (4-bit), `device_map="auto"`, dynamic resolution capping (`min_pixels=256*28*28`, `max_pixels=512*512`), BGE section reranking in FP16, and OMGM standard evaluation.
-2. **Drafting Paper Section 4 (Method) & Section 5 (Experiments):**
-   - Write LaTeX draft using standard ACL/EMNLP template incorporating Tables 1, 2, and 3.
+1. **Qualitative Case Studies (Phase 4):**
+   - Extract 3 distinct case study visual figures (Image + Question + Cand 1 + Cand 2 + Ground Truth) comparing Rigid OMGM vs. Agentic Controller.
+2. **Drafting Conference Paper (Phase 5):**
+   - Write LaTeX draft using standard ACL/EMNLP template with Sections 1–7 and Tables 1–3.
