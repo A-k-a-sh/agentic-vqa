@@ -1,0 +1,11 @@
+{
+  "architecture": "Dual-Agent Committee (Qwen2-VL Primary + LLaVA-1.5 Fallback)",
+  "total_queries": 1000,
+  "baseline_accuracy": 35.699999999999996,
+  "ensemble_accuracy": 40.2,
+  "net_gain": 4.5,
+  "net_recovered_queries": 47,
+  "llava_standalone_accuracy": 39.3,
+  "qwen_standalone_accuracy": 39.5,
+  "oracle_upper_bound_accuracy": 40.6
+}
