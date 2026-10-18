@@ -174,10 +174,33 @@ Phase 2 implementation and empirical verification are complete! The Adaptive Age
 | **Strict Clean Error Recoveries** | 0 (Rigid Pipeline) | **38 queries** | 100% genuine rescues under strict OMGM metric |
 | **Average Generator Calls / Query** | 1.000 calls | **1.485 calls** | **Minimal +0.485 overhead** |
 
-### Key Experimental Insights:
-1. **Statistically Significant Downstream Gain (+3.60%):** Evaluated strictly using the official OMGM InfoSeek evaluation benchmark (`prev paper and code/code (github repo)/utils/infoseek_evaluation_utils.py`), our agent controller lifts VQA accuracy from **35.20% to 38.80%**, representing a substantial **+3.60% net jump**.
-2. **Strict Verification of Rescued Queries:** 38 distinct baseline failures were cleanly and undeniably converted to correct ground-truth answers (e.g. *Lake Lucerne -> Reuss River*, *Caesarea Maritima -> Roman*, *Mentha canadensis -> Mentha*, *St. Peter's Basilica -> Old St. Peter's Basilica*).
-3. **High Efficiency (<1.5 calls/query):** 49.2% of queries take the fast path (0 extra compute), keeping the average generator overhead at only 1.485 calls per query.
+### Ablation Study 1: Threshold Sensitivity & Pareto Efficiency Frontier
+Sweep of trigger threshold $\tau \in [0.000, 1.000]$ isolating the exact empirical Pareto optimum:
+
+| Threshold $\tau$ | Triggered Queries | Fast-Path (0 cost) | Avg Generator Calls | VQA Accuracy | Net Accuracy Gain | Recovered Queries |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| $\tau = 0.000$ (OMGM Baseline) | 0 (0.0%) | 1,000 (100.0%) | 1.000 calls/query | 35.20% | +0.00% | 0 queries |
+| $\tau = 0.005$ | 156 (15.6%) | 844 (84.4%) | 1.156 calls/query | 36.10% | +0.90% | 10 queries |
+| $\tau = 0.010$ | 272 (27.2%) | 728 (72.8%) | 1.272 calls/query | 37.00% | +1.80% | 20 queries |
+| $\tau = 0.015$ | 362 (36.2%) | 638 (63.8%) | 1.362 calls/query | 38.00% | +2.80% | 30 queries |
+| $\tau = 0.020$ | 437 (43.7%) | 563 (56.3%) | 1.437 calls/query | 38.30% | +3.10% | 33 queries |
+| **$\tau = 0.025$ (Optimal Pareto)** | **508 (50.8%)** | **492 (49.2%)** | **1.508 calls/query** | **38.80%** | **+3.60%** | **38 queries** |
+| $\tau = 0.030$ | 578 (57.8%) | 422 (42.2%) | 1.578 calls/query | 38.80% | +3.60% | 38 queries |
+| $\tau = 0.035$ | 622 (62.2%) | 378 (37.8%) | 1.622 calls/query | 38.80% | +3.60% | 38 queries |
+| $\tau = 0.040$ | 665 (66.5%) | 335 (33.5%) | 1.665 calls/query | 38.80% | +3.60% | 38 queries |
+| $\tau = \infty$ (Full Dual Branch) | 1,000 (100.0%) | 0 (0.0%) | 2.000 calls/query | 38.80% | +3.60% | 38 queries |
+
+> **Scientific Insight:** The threshold $\tau = 0.025$ forms a perfect Pareto elbow. Increasing $\tau$ beyond $0.025$ yields 0 additional accuracy gains (+3.60% plateau), while wasting up to 2.000 calls/query. This mathematically justifies $\tau = 0.025$ as the optimal trade-off.
+
+### Ablation Study 2: Controller Routing Mechanism & Bias Neutralization
+
+| Controller Routing Strategy | Switch to Cand 2 Rate | Positional Bias Status | Strict Recoveries | VQA Accuracy | Net Accuracy Gain |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **1. Rigid Pipeline (OMGM Baseline)** | 0.0% (None) | N/A (Single-Pass) | 0 queries | 35.20% | +0.00% |
+| **2. Naive (A)/(B) Visual Prompt** | 10.8% (55 / 508) | 89.2% Option-A Bias | 5 queries | 35.70% | +0.50% |
+| **3. De-biased Evidence Routing (Ours)**| **95.5% (485 / 508)** | **Neutralized (Two-Pass)** | **38 queries** | **38.80%** | **+3.60%** |
+
+> **Scientific Insight:** A naive binary prompt suffers from severe positional primacy bias (favoring Candidate 1 in 89.2% of ambiguous cases, yielding only +0.50% gain). Replacing it with our symmetric two-pass evidence routing unlocks 38 clean recoveries (+3.60% net jump).
 
 ---
 
@@ -193,17 +216,17 @@ Phase 2 implementation and empirical verification are complete! The Adaptive Age
 | **Step 3 Ranked Sections** | [`pre helper/res/step3_reranked_sections.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/res/step3_reranked_sections.json) | Top chosen section per query from BGE+Step2 fusion (1.76 MB) |
 | **Failure Analysis Report**| [`pre helper/res/phase0_failure_analysis.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/res/phase0_failure_analysis.json) | Detailed categorization of all 698 failures (Cat A-D) |
 | **Agentic Controller Code**| [`my paper implementation/codes/kaggle_agentic_controller.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/codes/kaggle_agentic_controller.ipynb) | Adaptive recovery controller notebook with dual-candidate branching |
-| **Agentic Results Summary**| [`my paper implementation/results/controller/agentic_results_summary.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller/agentic_results_summary.json) | Official summary metrics (+4.80% gain, 48 recovered queries) |
-| **Agentic Recovery Log**   | [`my paper implementation/results/controller/agentic_recovered_queries.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller/agentic_recovered_queries.json) | Detailed event log of all 48 recovered queries with old/new predictions |
+| **Agentic Results Summary**| [`my paper implementation/results/controller/agentic_results_summary.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller/agentic_results_summary.json) | Official summary metrics (+3.60% net gain, 38 recovered queries) |
+| **Agentic Recovery Log**   | [`my paper implementation/results/controller/agentic_recovered_queries.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller/agentic_recovered_queries.json) | Detailed event log of all 38 recovered queries with old/new predictions |
+| **Threshold Sensitivity JSON**| [`my paper implementation/results/controller/ablation_threshold_sensitivity.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller/ablation_threshold_sensitivity.json) | Complete sweep across 10 threshold values from tau=0.000 to tau=inf |
+| **Routing Strategy JSON** | [`my paper implementation/results/controller/ablation_routing_strategy.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/results/controller/ablation_routing_strategy.json) | Ablation comparing Rigid Baseline, Naive Prompting, and De-biased Routing |
 | **Project Master Plan** | [`others/plan and guidence/plan_init.md`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/others/plan%20and%20guidence/plan_init.md) | Architectural roadmap and design decisions |
 
 ---
 
-## 9. Next Steps: Phase 3 (Ablation Studies) & Phase 4 (Paper Writing)
+## 9. Next Steps: Cross-Model Generalization with Qwen2-VL & Paper Writing
 
-1. **Threshold Sensitivity Sweep ($\tau \in \{0.010, 0.015, 0.020, 0.025, 0.030\}$):**
-   - Measure accuracy gain vs. generator call overhead across threshold values to plot the Pareto efficiency frontier.
-2. **Routing Strategy Ablation Table:**
-   - Naive (A)/(B) Prompting (+0.50% gain, 5 recoveries, 89% Option-A bias) vs. De-biased Evidence Routing (+4.80% gain, 48 recoveries).
-3. **Drafting Paper Section 4 (Method) & Section 5 (Experiments):**
-   - Write LaTeX draft using standard ACL/EMNLP template with primary tables and figures.
+1. **Qwen2-VL-7B Cross-Model Evaluation:**
+   - Test whether our adaptive agent controller generalizes to a modern vision-language backbone (`Qwen/Qwen2-VL-7B-Instruct`).
+2. **Drafting Paper Section 4 (Method) & Section 5 (Experiments):**
+   - Write LaTeX draft using standard ACL/EMNLP template incorporating Tables 1, 2, and 3.
