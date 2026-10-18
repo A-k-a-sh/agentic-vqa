@@ -106,11 +106,17 @@ def resolve_path(exact_path: str, search_patterns: Optional[List[str]] = None, i
     return exact_path
 
 DEFAULT_STEP2_PATH = resolve_path(
-    os.path.join(BASE_DS_DIR, "result_step2.json"),
+    os.path.join(BASE_DS_DIR, "result_step_2.json"),
     search_patterns=[
-        "/kaggle/input/**/result_step2.json",
+        os.path.join(BASE_DS_DIR, "result_step2.json"),
+        os.path.join(BASE_DS_DIR, "res_step2.json"),
         "/kaggle/input/**/result_step_2.json",
+        "/kaggle/input/**/result_step2.json",
+        "/kaggle/input/**/res_step2.json",
+        "/kaggle/input/**/results_step2.json",
+        "/kaggle/input/**/result.json",
         os.path.join(LOCAL_PRE_DIR, "res/result_step2.json"),
+        os.path.join(LOCAL_PRE_DIR, "res/res_step2.json"),
     ],
     is_dir=False
 )
