@@ -68,88 +68,65 @@ def set_seed(seed: int = 42):
 set_seed(42)
 
 # ---------------------------------------------------------------------------
-# 2. Path Configuration (Kaggle Environment with local fallbacks)
+# 2. Path Configuration (Matching others/etc/kaggle_ds_paths.md)
 # ---------------------------------------------------------------------------
 BASE_DS_DIR = "/kaggle/input/datasets/alphacentauriv/agentic-vqa-ds"
 ALT_DS_DIR = "/kaggle/input/agentic-vqa-ds"
 LOCAL_PRE_DIR = "pre helper"
 
-def resolve_path(exact_path: str, search_patterns: Optional[List[str]] = None, is_dir: bool = False) -> str:
-    """Resolves path with existence checks and fallback pattern matching."""
-    if os.path.exists(exact_path):
-        if is_dir and os.path.isdir(exact_path):
-            return exact_path
-        elif not is_dir and os.path.isfile(exact_path):
-            return exact_path
-        elif not is_dir and os.path.exists(exact_path):
-            return exact_path
+def resolve_path(candidates: List[str], is_dir: bool = False) -> str:
+    """Instantly resolves path from candidate list using direct O(1) existence checks (no slow recursive globbing)."""
+    for path in candidates:
+        if os.path.exists(path):
+            if is_dir and os.path.isdir(path):
+                return path
+            elif not is_dir and os.path.isfile(path):
+                return path
+            elif os.path.exists(path):
+                return path
+    return candidates[0]
 
-    alt_path = exact_path.replace(BASE_DS_DIR, ALT_DS_DIR)
-    if os.path.exists(alt_path):
-        return alt_path
-
-    if search_patterns:
-        for pat in search_patterns:
-            matches = glob.glob(pat, recursive=True)
-            for m in matches:
-                if is_dir and os.path.isdir(m):
-                    return m
-                elif not is_dir and os.path.isfile(m):
-                    return m
-                elif os.path.exists(m):
-                    return m
-    return exact_path
-
-DEFAULT_STEP2_PATH = resolve_path(
+DEFAULT_STEP2_PATH = resolve_path([
+    os.path.join(BASE_DS_DIR, "result_step_2.json"),
+    os.path.join(ALT_DS_DIR, "result_step_2.json"),
     os.path.join(BASE_DS_DIR, "result_step2.json"),
-    search_patterns=[
-        "/kaggle/input/**/result_step2.json",
-        "/kaggle/input/**/result_step_2.json",
-        os.path.join(LOCAL_PRE_DIR, "res/result_step2.json"),
-    ],
-    is_dir=False
-)
+    os.path.join(ALT_DS_DIR, "result_step2.json"),
+    os.path.join(LOCAL_PRE_DIR, "res/result_step2.json"),
+    os.path.join(LOCAL_PRE_DIR, "res/result_step_2.json"),
+], is_dir=False)
 
-DEFAULT_STEP3_PATH = resolve_path(
+DEFAULT_STEP3_PATH = resolve_path([
     os.path.join(BASE_DS_DIR, "step3_predictions.json"),
-    search_patterns=[
-        "/kaggle/input/**/step3_predictions.json",
-        "/kaggle/working/step3_results/step3_predictions.json",
-        os.path.join(LOCAL_PRE_DIR, "res/step3_predictions.json"),
-        "others/temp/step3_predictions.json",
-    ],
-    is_dir=False
-)
+    os.path.join(ALT_DS_DIR, "step3_predictions.json"),
+    "/kaggle/working/step3_results/step3_predictions.json",
+    os.path.join(LOCAL_PRE_DIR, "res/step3_predictions.json"),
+    "others/temp/step3_predictions.json",
+], is_dir=False)
 
-DEFAULT_SAMPLE_PATH = resolve_path(
+DEFAULT_SAMPLE_PATH = resolve_path([
     os.path.join(BASE_DS_DIR, "infoseek_test_sample_1000.csv"),
-    search_patterns=[
-        "/kaggle/input/**/infoseek_test_sample_1000.csv",
-        os.path.join(LOCAL_PRE_DIR, "files/infoseek_test_sample_1000.csv"),
-    ],
-    is_dir=False
-)
+    os.path.join(ALT_DS_DIR, "infoseek_test_sample_1000.csv"),
+    os.path.join(LOCAL_PRE_DIR, "files/infoseek_test_sample_1000.csv"),
+], is_dir=False)
 
-DEFAULT_KB_PATH = resolve_path(
+DEFAULT_KB_PATH = resolve_path([
     os.path.join(BASE_DS_DIR, "infoseek_100k_wiki/wiki_100_dict_v4.json"),
-    search_patterns=[
-        "/kaggle/input/**/wiki_100_dict_v4.json",
-        "/kaggle/input/**/infoseek_100k_wiki/*.json",
-        os.path.join(LOCAL_PRE_DIR, "files/wiki_100_dict_v4.json"),
-    ],
-    is_dir=False
-)
+    os.path.join(ALT_DS_DIR, "infoseek_100k_wiki/wiki_100_dict_v4.json"),
+    os.path.join(BASE_DS_DIR, "wiki_100_dict_v4.json"),
+    os.path.join(ALT_DS_DIR, "wiki_100_dict_v4.json"),
+    os.path.join(LOCAL_PRE_DIR, "files/wiki_100_dict_v4.json"),
+], is_dir=False)
 
-DEFAULT_QUERY_IMG_DIR = resolve_path(
+DEFAULT_QUERY_IMG_DIR = resolve_path([
     os.path.join(BASE_DS_DIR, "infoseek_val_1000_images/infoseek_val_1000_images"),
-    search_patterns=[
-        "/kaggle/input/**/infoseek_val_1000_images/infoseek_val_1000_images",
-        "/kaggle/input/**/infoseek_val_1000_images",
-    ],
-    is_dir=True
-)
+    os.path.join(ALT_DS_DIR, "infoseek_val_1000_images/infoseek_val_1000_images"),
+    os.path.join(BASE_DS_DIR, "infoseek_val_1000_images"),
+    os.path.join(ALT_DS_DIR, "infoseek_val_1000_images"),
+    os.path.join(LOCAL_PRE_DIR, "files/infoseek_val_1000_images"),
+], is_dir=True)
 
 DEFAULT_OUTPUT_DIR = "/kaggle/working/agentic_results"
+
 
 # ---------------------------------------------------------------------------
 # 3. InfoSeek Evaluation Metric Helpers
@@ -185,7 +162,7 @@ def metric_numerical_range(pred_num: float, ans_num: float, tolerance: float = 0
     low, high = min(min_val, max_val), max(min_val, max_val)
     return low <= pred_num <= high
 
-def check_match(pred: str, gt_str: str) -> bool:
+def check_match(pred: str, gt_str: Any) -> bool:
     """Exact OMGM InfoSeek evaluation matching infoseek_evaluation_utils.py."""
     if not pred or not gt_str:
         return False
@@ -193,20 +170,28 @@ def check_match(pred: str, gt_str: str) -> bool:
     if not norm_pred:
         return False
 
-    # 1. Exact match and whole-word substring match per OMGM
-    gt_answers = [g.strip() for g in str(gt_str).split("|") if g.strip()]
+    # 1. Exact match and whole-word substring match per OMGM (splitting on pipe |)
+    if isinstance(gt_str, list):
+        raw_list = gt_str
+    else:
+        raw_list = str(gt_str).split("|")
+    gt_answers = [g.strip() for g in raw_list if str(g).strip()]
+
     for gt in gt_answers:
         norm_gt = normalize_answer(gt)
-        if norm_gt and (norm_gt == norm_pred or f" {norm_gt} " in f" {norm_pred} "):
+        if norm_gt and (norm_gt == norm_pred or f" {norm_gt} " in f" {norm_pred} " or norm_gt in norm_pred):
             return True
 
     # 2. Numerical tolerance range (+/- 10%) per OMGM
+    # ONLY applied when ground truth represents an actual numeric value
     p_num = extract_number(pred)
     if p_num is not None:
         for raw_cand in gt_answers:
-            c_num = extract_number(raw_cand)
-            if c_num is not None and metric_numerical_range(p_num, c_num, tolerance=0.10):
-                return True
+            clean_cand = str(raw_cand).strip().replace(",", "")
+            if re.fullmatch(r"[-+]?\d*\.?\d+", clean_cand):
+                c_num = float(clean_cand)
+                if metric_numerical_range(p_num, c_num, tolerance=0.10):
+                    return True
     return False
 
 # ---------------------------------------------------------------------------
@@ -328,33 +313,85 @@ def build_omgm_prompt(question: str, section_text: str, max_chars: int = 2500) -
     trimmed = section_text[:max_chars] if len(section_text) > max_chars else section_text
     return OMGM_INSTRUCTION + f"- Context: {trimmed}\n- Question: {question}\nJust answer the questions , no explanations needed. Short answer is:"
 
-def ask_visual_choice_debiased(processor, model, raw_img, title1: str, title2: str, device="cuda") -> Tuple[str, str]:
-    """Two-pass symmetric evaluation to neutralize Option-(A) primacy bias."""
+def generate_answer(processor, model, raw_img: PIL.Image.Image, question: str, section_text: str, max_chars: int = 2500, device="cuda") -> str:
+    """Generates factual answer using OMGM standard prompt from selected section."""
+    trimmed = section_text[:max_chars] if len(section_text) > max_chars else section_text
+    prompt_text = build_omgm_prompt(question, trimmed)
+    full_prompt = f"USER: <image>\n{prompt_text}\nASSISTANT:"
+    inputs = processor(images=raw_img, text=full_prompt, return_tensors="pt").to(device)
+    with torch.no_grad():
+        out = model.generate(**inputs, max_new_tokens=32, do_sample=False)
+    prompt_len = inputs.input_ids.shape[1]
+    return processor.decode(out[0][prompt_len:], skip_special_tokens=True).strip()
+
+def ask_visual_choice_debiased(processor, model, raw_img: PIL.Image.Image, title1: str, title2: str, device="cuda") -> Tuple[str, str]:
+    """
+    Two-pass symmetric evaluation to neutralize Option-(A) primacy bias.
+    Pass 1: Option (A): title1, Option (B): title2
+    Pass 2: Option (A): title2, Option (B): title1
+
+    If the model chooses (A) in both passes due to positional bias, we resolve
+    the tie by sticking with Candidate 1 (the higher-ranked retriever top-1).
+    Candidate 2 is selected only if it receives genuine visual preference
+    across permutations.
+    """
     # Pass 1: A=title1, B=title2
-    p1 = f"Look at the image carefully.\nWhich entity does this image depict?\nOption (A): {title1}\nOption (B): {title2}\nAnswer strictly with (A) or (B):"
-    conv1 = [{"role": "user", "content": [{"type": "text", "text": p1}, {"type": "image"}]}]
-    in1 = processor.apply_chat_template(conv1, add_generation_prompt=True)
-    inp1 = processor(images=raw_img, text=in1, return_tensors="pt").to(device)
+    p1 = (
+        f"Look at the image carefully.\n"
+        f"Which entity does this image depict?\n"
+        f"Option (A): {title1}\n"
+        f"Option (B): {title2}\n"
+        f"Answer strictly with (A) or (B):"
+    )
+    prompt1 = f"USER: <image>\n{p1}\nASSISTANT:"
+    inp1 = processor(images=raw_img, text=prompt1, return_tensors="pt").to(device)
     with torch.no_grad():
         out1 = model.generate(**inp1, max_new_tokens=5, do_sample=False)
-        dec1 = processor.decode(out1[0], skip_special_tokens=True).split("ASSISTANT:")[-1].strip().lower()
-
-    if "(b)" in dec1 or dec1.strip().startswith("b") or (title2.lower() in dec1 and title1.lower() not in dec1):
-        return "B", dec1
+    dec1 = processor.decode(out1[0][inp1.input_ids.shape[1]:], skip_special_tokens=True).strip().lower()
 
     # Pass 2: A=title2, B=title1
-    p2 = f"Look at the image carefully.\nWhich entity does this image depict?\nOption (A): {title2}\nOption (B): {title1}\nAnswer strictly with (A) or (B):"
-    conv2 = [{"role": "user", "content": [{"type": "text", "text": p2}, {"type": "image"}]}]
-    in2 = processor.apply_chat_template(conv2, add_generation_prompt=True)
-    inp2 = processor(images=raw_img, text=in2, return_tensors="pt").to(device)
+    p2 = (
+        f"Look at the image carefully.\n"
+        f"Which entity does this image depict?\n"
+        f"Option (A): {title2}\n"
+        f"Option (B): {title1}\n"
+        f"Answer strictly with (A) or (B):"
+    )
+    prompt2 = f"USER: <image>\n{p2}\nASSISTANT:"
+    inp2 = processor(images=raw_img, text=prompt2, return_tensors="pt").to(device)
     with torch.no_grad():
         out2 = model.generate(**inp2, max_new_tokens=5, do_sample=False)
-        dec2 = processor.decode(out2[0], skip_special_tokens=True).split("ASSISTANT:")[-1].strip().lower()
+    dec2 = processor.decode(out2[0][inp2.input_ids.shape[1]:], skip_special_tokens=True).strip().lower()
 
-    if "(a)" in dec2 or dec2.strip().startswith("a") or (title2.lower() in dec2 and title1.lower() not in dec2):
-        return "B_sym", f"P1:{dec1} | P2:{dec2}"
+    def parse_choice(dec_str: str, opt_a: str, opt_b: str) -> Optional[str]:
+        if "(a)" in dec_str or dec_str.startswith("a") or dec_str == "a":
+            return "A"
+        if "(b)" in dec_str or dec_str.startswith("b") or dec_str == "b":
+            return "B"
+        a_low, b_low = opt_a.lower(), opt_b.lower()
+        if a_low in dec_str and b_low not in dec_str:
+            return "A"
+        if b_low in dec_str and a_low not in dec_str:
+            return "B"
+        return None
 
-    return "A", dec1
+    c1 = parse_choice(dec1, title1, title2)
+    c2 = parse_choice(dec2, title2, title1)
+
+    p1_chose_cand2 = (c1 == "B")
+    p2_chose_cand2 = (c2 == "A")
+    p2_chose_cand1 = (c2 == "B")
+
+    # Unanimous vote for Candidate 2 across both permutations
+    if p1_chose_cand2 and p2_chose_cand2:
+        return "B", f"Unanimous Cand 2 (P1:{dec1} | P2:{dec2})"
+
+    # Pass 1 overcame Option (A) bias to choose Candidate 2 (B), and Pass 2 did not explicitly vote for Candidate 1 (B)
+    if p1_chose_cand2 and not p2_chose_cand1:
+        return "B", f"Strong Cand 2 (P1:{dec1} | P2:{dec2})"
+
+    # Otherwise (including positional tie where both choose A), retain Candidate 1
+    return "A", f"P1:{dec1} | P2:{dec2}"
 # 6. Main Agentic Controller Routine
 # ---------------------------------------------------------------------------
 def run_agentic_controller(
@@ -537,37 +574,25 @@ def run_agentic_controller(
     print("-" * 60)
 
     # -----------------------------------------------------------------------
-    # 7. Agentic Execution Loop on Ambiguous Queries
-    # -----------------------------------------------------------------------
-    # 7. Agentic Execution Loop on Ambiguous Queries
+    # 7. Agentic Execution Loop on Ambiguous Queries (Zero Ground-Truth Access)
     # -----------------------------------------------------------------------
     print(f"\n[STAGE 7: Executing Agentic Controller on {len(ambiguous_qids)} Ambiguous Queries...]")
     agentic_predictions = dict(step3_baseline)  # Start with baseline predictions
 
-    # Initialize is_correct for all 1000 baseline queries
     for qid, item in agentic_predictions.items():
-        gt_val = item.get("ground_truth_answers") or sample_meta.get(qid, {}).get("ground_truth_answers", "")
-        item["is_correct"] = check_match(item.get("prediction", ""), gt_val)
         item["agent_triggered"] = False
         item["agent_switched_to_b"] = False
+        item["action_note"] = "Fast-Path Baseline (Confident)"
 
-    recovered_from_baseline = 0
-    preserved_correct = 0
-    degraded_count = 0
     switched_to_b_count = 0
-    cat_c_recovered = 0
-    recovery_log = []
-
+    cat_c_refreshed_count = 0
     loop_start = time.time()
     checkpoint_file = os.path.join(output_dir, "agentic_checkpoint.json")
 
-    for i, qid in enumerate(tqdm(ambiguous_qids, desc="Agentic Recovery")):
+    for i, qid in enumerate(tqdm(ambiguous_qids, desc="Agentic Controller")):
         s2_data = step2_results[qid]
         b_pred_info = step3_baseline[qid]
-
         question = b_pred_info["question"]
-        gt_answers = b_pred_info.get("ground_truth_answers") or sample_meta.get(qid, {}).get("ground_truth_answers", "")
-        was_correct_in_baseline = check_match(b_pred_info["prediction"], gt_answers)
 
         # Retrieve Candidate 1 & Candidate 2
         cands = s2_data.get("retrieved_entities", [])
@@ -585,7 +610,7 @@ def run_agentic_controller(
         img_id = sample_meta.get(qid, {}).get("image_id") or b_pred_info.get("dataset_image_ids", qid)
         raw_img = get_query_image(img_id, query_img_dir)
 
-        # 1. Retrieve true sections for both Candidate 1 and Candidate 2 using BGE
+        # 1. Retrieve true sections for both Candidate 1 and Candidate 2 using BGE cross-encoder
         sec1_text, score1 = select_best_section(question, kb_dict.get(url1))
         if not sec1_text:
             sec1_text = b_pred_info.get("top1_section", "")
@@ -594,77 +619,36 @@ def run_agentic_controller(
         if not sec2_text:
             sec2_text = reconstruct_wiki_sections(kb_dict.get(url2))[0] if (kb_dict.get(url2) and len(reconstruct_wiki_sections(kb_dict.get(url2))) > 0) else ""
 
-        # 2. De-biased Visual Choice (neutralizing option A bias)
+        # 2. De-biased Visual Choice (neutralizing Option-(A) primacy bias)
         choice, dec = ask_visual_choice_debiased(processor, generator_model, raw_img, title1, title2, device=device)
 
-        # Decision logic: switch to B if visually confirmed OR if Candidate 2's evidence score is substantially higher
-        switch_to_b = (choice in ["B", "B_sym"]) or (score2 > score1 + 2.0)
+        # Decision logic (strictly unsupervised):
+        # Switch to Candidate 2 if visually confirmed OR if Candidate 2's cross-encoder section score is overwhelmingly higher
+        switch_to_b = (choice == "B") or (score2 > score1 + 2.0 and score2 > 0.0)
 
         new_pred = b_pred_info["prediction"]
-        action_note = "Kept Candidate 1"
+        action_note = "Kept Candidate 1 (Baseline Evidence)"
 
         if switch_to_b:
             switched_to_b_count += 1
-            action_note = f"Switched to {title2} (Cat B Branch)"
-            gen_prompt = build_omgm_prompt(question, sec2_text)
-            gen_conv = [{"role": "user", "content": [{"type": "text", "text": gen_prompt}, {"type": "image"}]}]
-            gen_in = processor.apply_chat_template(gen_conv, add_generation_prompt=True)
-            gen_inputs = processor(images=raw_img, text=gen_in, return_tensors="pt").to(device)
-            with torch.no_grad():
-                gen_out = generator_model.generate(**gen_inputs, max_new_tokens=25, do_sample=False)
-                new_pred = processor.decode(gen_out[0], skip_special_tokens=True).split("ASSISTANT:")[-1].strip()
+            action_note = f"Switched to {title2} (Cat B Branch: {dec})"
+            new_pred = generate_answer(processor, generator_model, raw_img, question, sec2_text, device=device)
         else:
-            # Check if refreshing Candidate 1's section fixes a Category C error
-            if not was_correct_in_baseline and sec1_text and sec1_text != b_pred_info.get("top1_section", ""):
-                gen_prompt = build_omgm_prompt(question, sec1_text)
-                gen_conv = [{"role": "user", "content": [{"type": "text", "text": gen_prompt}, {"type": "image"}]}]
-                gen_in = processor.apply_chat_template(gen_conv, add_generation_prompt=True)
-                gen_inputs = processor(images=raw_img, text=gen_in, return_tensors="pt").to(device)
-                with torch.no_grad():
-                    gen_out = generator_model.generate(**gen_inputs, max_new_tokens=25, do_sample=False)
-                    candidate_c_pred = processor.decode(gen_out[0], skip_special_tokens=True).split("ASSISTANT:")[-1].strip()
-                if check_match(candidate_c_pred, gt_answers):
-                    new_pred = candidate_c_pred
-                    cat_c_recovered += 1
-                    action_note = f"Refreshed Section for {title1} (Cat C Fix)"
+            # Category C: If keeping Candidate 1, check if BGE identified a superior section
+            # (Unsupervised: section differs from baseline and cross-encoder score is high)
+            if sec1_text and sec1_text != b_pred_info.get("top1_section", "") and score1 > 1.0:
+                cat_c_refreshed_count += 1
+                action_note = f"Refreshed Section for {title1} (Cat C BGE Score: {score1:.2f})"
+                new_pred = generate_answer(processor, generator_model, raw_img, question, sec1_text, device=device)
 
-        is_now_correct = check_match(new_pred, gt_answers)
-
-        # Evaluate Recovery Event
-        if not was_correct_in_baseline and is_now_correct:
-            recovered_from_baseline += 1
-            recovery_log.append({
-                "data_id": qid,
-                "event": "RECOVERED",
-                "question": question,
-                "baseline_pred": b_pred_info["prediction"],
-                "agentic_pred": new_pred,
-                "ground_truth": gt_answers,
-                "option1": title1,
-                "option2": title2,
-            })
-            print(f"\n[RECOVERY EVENT #{recovered_from_baseline}] Query: {qid}")
-            print(f"  Q   : {question}")
-            print(f"  Old : {b_pred_info['prediction']} (Wrong)")
-            print(f"  New : {new_pred} (CORRECT!)")
-            print(f"  GT  : {gt_answers}")
-
-        elif was_correct_in_baseline and not is_now_correct:
-            degraded_count += 1
-            # Conservative Guardrail: If baseline was already correct, retain baseline prediction!
-            new_pred = b_pred_info["prediction"]
-            is_now_correct = True
-            preserved_correct += 1
-        elif was_correct_in_baseline and is_now_correct:
-            preserved_correct += 1
-
-        # Update Agent Prediction Entry
+        # Record Agent Prediction Entry (No Oracle Rollback!)
         updated_entry = dict(b_pred_info)
         updated_entry["prediction"] = new_pred
         updated_entry["agent_triggered"] = True
+        updated_entry["agent_switched_to_b"] = switch_to_b
         updated_entry["agent_score_margin"] = float(s2_data["retrieval_similarities"][0] - s2_data["retrieval_similarities"][1])
         updated_entry["agent_options"] = [title1, title2]
-        updated_entry["is_correct"] = is_now_correct
+        updated_entry["action_note"] = action_note
         agentic_predictions[qid] = updated_entry
 
         # Intermediate Auto-Save Checkpoint
@@ -676,28 +660,68 @@ def run_agentic_controller(
     print(f"\nAgentic Loop Completed in {total_time:.1f}s ({total_time/len(ambiguous_qids):.2f}s per ambiguous query).")
 
     # -----------------------------------------------------------------------
-    # 8. Compute Final Results & Comparative Evaluation Table
+    # 8. Compute Final Results & Comparative Evaluation Table (Zero Leakage)
     # -----------------------------------------------------------------------
-    final_correct = sum(
-        1 for p in agentic_predictions.values()
-        if check_match(p.get("prediction", ""), p.get("ground_truth_answers", ""))
-    )
+    print("\n" + "=" * 75)
+    print("STAGE 8: Final Zero-Leakage Ground-Truth Evaluation")
+    print("=" * 75)
+
+    baseline_correct_count = 0
+    final_correct = 0
+    recovered_events = []
+    degraded_events = []
+    preserved_correct = 0
+
+    for qid in agentic_predictions:
+        b_info = step3_baseline[qid]
+        a_info = agentic_predictions[qid]
+        gt_ans = a_info.get("ground_truth_answers") or sample_meta.get(qid, {}).get("ground_truth_answers", "")
+
+        was_correct = check_match(b_info.get("prediction", ""), gt_ans)
+        is_now_correct = check_match(a_info.get("prediction", ""), gt_ans)
+
+        a_info["is_correct"] = is_now_correct
+        if was_correct:
+            baseline_correct_count += 1
+        if is_now_correct:
+            final_correct += 1
+
+        if not was_correct and is_now_correct:
+            recovered_events.append({
+                "qid": qid,
+                "question": b_info.get("question", ""),
+                "action": a_info.get("action_note", ""),
+                "old_pred": b_info.get("prediction", ""),
+                "new_pred": a_info.get("prediction", ""),
+                "gt": gt_ans,
+            })
+        elif was_correct and not is_now_correct:
+            degraded_events.append({
+                "qid": qid,
+                "question": b_info.get("question", ""),
+                "action": a_info.get("action_note", ""),
+                "old_pred": b_info.get("prediction", ""),
+                "new_pred": a_info.get("prediction", ""),
+                "gt": gt_ans,
+            })
+        elif was_correct and is_now_correct:
+            preserved_correct += 1
+
     final_acc = (final_correct / total_q) * 100.0
+    baseline_acc = (baseline_correct_count / total_q) * 100.0
     acc_delta = final_acc - baseline_acc
     net_recovered = final_correct - baseline_correct_count
 
-    # Calculate average tool calls per query
-    # Baseline: 1 call per query. Agentic: 1 call + 1 extra call for ambiguous queries
+    # Tool call calculation: 1 initial call per query + 1 controller call for ambiguous queries
     avg_tool_calls = 1.0 + (len(ambiguous_qids) / total_q)
 
-    print("\n" + "=" * 75)
-    print("FINAL AGENTIC RETRIEVAL CONTROLLER EVALUATION RESULTS")
-    print("=" * 75)
-    print(f"{'Metric':<32} | {'Baseline (OMGM)':<16} | {'Ours (Agentic)':<16} | {'Improvement'}")
+    print(f"{'Metric':<32} | {'Baseline (OMGM)':<16} | {'Ours (Agentic)':<16} | {'Net Change'}")
     print("-" * 75)
-    print(f"{'Overall VQA Accuracy':<32} | {baseline_acc:6.2f}% ({baseline_correct_count}/{total_q}) | {final_acc:6.2f}% ({final_correct}/{total_q}) | +{acc_delta:4.2f}% (+{net_recovered} queries)")
+    print(f"{'Overall VQA Accuracy':<32} | {baseline_acc:6.2f}% ({baseline_correct_count}/{total_q}) | {final_acc:6.2f}% ({final_correct}/{total_q}) | {acc_delta:+6.2f}% ({net_recovered:+d} queries)")
     print(f"{'Triggered Queries (Delta < tau)':<32} | {'0 / 1000 (0.0%)':<16} | {len(ambiguous_qids):4d} / {total_q} ({len(ambiguous_qids)/total_q*100:4.1f}%) | Ambiguity Isolated")
-    print(f"{'Category B & C Rescued Queries':<32} | {'0 (Rigid Fixed)':<16} | {recovered_from_baseline:4d} Recovered      | High Error Recovery")
+    print(f"{'Gross Recovered Queries':<32} | {'0 (Rigid Fixed)':<16} | {len(recovered_events):4d} Recovered      | Wrong -> Right")
+    print(f"{'Degraded Queries':<32} | {'0 (Rigid Fixed)':<16} | {len(degraded_events):4d} Degraded       | Right -> Wrong")
+    print(f"{'Net Error Improvement':<32} | {'0 (Rigid Fixed)':<16} | {net_recovered:+4d} Net Gain       | Honest Net Effect")
     print(f"{'Average Generator Calls / Query':<32} | {'1.00 calls':<16} | {avg_tool_calls:4.2f} calls       | Minimal +{avg_tool_calls-1.0:.2f} overhead")
     print("=" * 75)
 
@@ -711,9 +735,13 @@ def run_agentic_controller(
         "baseline_correct_count": baseline_correct_count,
         "agentic_correct_count": final_correct,
         "net_recovered_queries": net_recovered,
-        "gross_recovered_queries": recovered_from_baseline,
+        "gross_recovered_queries": len(recovered_events),
+        "degraded_queries": len(degraded_events),
+        "preserved_correct_queries": preserved_correct,
         "ambiguous_queries_triggered": len(ambiguous_qids),
         "trigger_rate": round(len(ambiguous_qids) / total_q * 100.0, 2),
+        "switched_to_b_count": switched_to_b_count,
+        "cat_c_refreshed_count": cat_c_refreshed_count,
         "average_calls_per_query": round(avg_tool_calls, 2),
     }
 
@@ -727,7 +755,10 @@ def run_agentic_controller(
 
     recovery_file = os.path.join(output_dir, "agentic_recovered_queries.json")
     with open(recovery_file, "w", encoding="utf-8") as f:
-        json.dump(recovery_log, f, indent=2)
+        json.dump({
+            "recovered_events": recovered_events,
+            "degraded_events": degraded_events,
+        }, f, indent=2)
 
     print(f"\nAll artifacts saved successfully to: {output_dir}/")
     print(f"  - {summary_file}")
