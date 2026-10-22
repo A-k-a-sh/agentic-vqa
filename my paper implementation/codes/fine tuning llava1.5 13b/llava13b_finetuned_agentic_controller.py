@@ -764,3 +764,170 @@ for fn in os.listdir(OUTPUT_DIR):
     sz = os.path.getsize(os.path.join(OUTPUT_DIR, fn)) / 1024
     print(f"  - {fn} ({sz:.1f} KB)")
 print("\nDone! Download these files from Kaggle's Output tab.")
+
+
+# %% [code]
+# =============================================================================
+# CELL 13: CATEGORY B + C AGENTIC CONTROLLER (MULTI-SECTION EXPANSION)
+# =============================================================================
+print("\n" + "=" * 70)
+print("CELL 13: CATEGORY B + C CONTROLLER (MULTI-SECTION CONTEXT EXPANSION)")
+print("=" * 70)
+
+def select_top2_sections_combined(question: str, entry: Optional[KnowledgeEntry], max_chars: int = 3200) -> Tuple[str, str]:
+    """
+    Returns (top1_section, combined_top2_sections).
+    Combines Top-1 and Top-2 sections to solve Category C (Section Selection Errors).
+    """
+    if not entry:
+        return "", ""
+    sections = reconstruct_wiki_sections(entry)
+    if not sections:
+        return "", ""
+    if len(sections) == 1:
+        return sections[0], sections[0]
+        
+    # Rank sections using BGE
+    if bge_model is not None and torch.cuda.is_available():
+        try:
+            pairs = [[question, s[:1200]] for s in sections]
+            inp = bge_tokenizer(pairs, padding=True, truncation=True, return_tensors="pt", max_length=512).to("cuda")
+            with torch.no_grad():
+                scores = bge_model(**inp).logits.view(-1).float().cpu().tolist()
+            ranked_indices = np.argsort(scores)[::-1]
+            top1 = sections[ranked_indices[0]]
+            top2 = sections[ranked_indices[1]] if len(ranked_indices) > 1 else ""
+            
+            combined = f"{top1}\n\n--- [Additional Section Evidence] ---\n\n{top2}" if top2 else top1
+            return top1, combined[:max_chars]
+        except Exception:
+            pass
+            
+    # Fallback to first two sections
+    sec1 = sections[0]
+    sec2 = sections[1] if len(sections) > 1 else ""
+    combined = f"{sec1}\n\n--- [Additional Section Evidence] ---\n\n{sec2}" if sec2 else sec1
+    return sec1, combined[:max_chars]
+
+# Initialize predictions dictionary for Category B+C
+cat_bc_predictions = {
+    qid: {
+        **info,
+        "agent_triggered": False,
+        "agent_switched_to_b": False,
+        "action_note": "Fast-Path Baseline"
+    }
+    for qid, info in step3_baseline.items()
+}
+
+switched_b_count = 0
+cat_c_expanded_count = 0
+loop_start = time.time()
+
+print(f"Executing Category B+C Controller on {len(ambiguous_qids)} ambiguous queries...")
+
+for i, qid in enumerate(tqdm(ambiguous_qids, desc="Category B+C Controller")):
+    s2_data = step2_results[qid]
+    b_info = step3_baseline[qid]
+    question = b_info["question"]
+
+    cands = s2_data.get("retrieved_entities", [])
+    if len(cands) < 2:
+        continue
+
+    title1 = cands[0].get("title", "Candidate 1")
+    title2 = cands[1].get("title", "Candidate 2")
+    url1   = cands[0].get("url", "").strip()
+    url2   = cands[1].get("url", "").strip()
+
+    # Load query image
+    img_id = sample_meta.get(qid, {}).get("image_id") or b_info.get("dataset_image_ids", qid)
+    raw_img = get_query_image(img_id, QUERY_IMG_DIR)
+
+    # 1. Single-pass fine-tuned visual verification (Category B)
+    choice, dec = ask_visual_choice_finetuned(raw_img, title1, title2)
+    switch_to_b = (choice == "B")
+
+    if switch_to_b:
+        # Category B: Switch to Candidate 2 with its top-2 sections
+        switched_b_count += 1
+        _, sec2_combined = select_top2_sections_combined(question, kb_dict.get(url2))
+        if not sec2_combined:
+            sec2_text, _ = select_best_section(question, kb_dict.get(url2))
+            sec2_combined = sec2_text
+        action_note = f"Switched to {title2} (Cat B LoRA: {dec})"
+        new_pred = generate_answer(raw_img, question, sec2_combined, max_chars=3200)
+    else:
+        # Category C: Candidate 1 verified, but expand to Top-1 + Top-2 sections
+        cat_c_expanded_count += 1
+        _, sec1_combined = select_top2_sections_combined(question, kb_dict.get(url1))
+        if not sec1_combined:
+            sec1_combined = b_info.get("top1_section", "")
+        action_note = f"Kept {title1} + Expanded Top-2 Sections (Cat C)"
+        new_pred = generate_answer(raw_img, question, sec1_combined, max_chars=3200)
+
+    cat_bc_predictions[qid].update({
+        "prediction": new_pred,
+        "agent_triggered": True,
+        "agent_switched_to_b": switch_to_b,
+        "action_note": action_note,
+        "verifier_output": dec,
+    })
+
+total_time = time.time() - loop_start
+print(f"\nCategory B+C Controller Finished in {total_time/60:.1f} minutes.")
+print(f"  Switches to Candidate 2 (Cat B) : {switched_b_count}")
+print(f"  Multi-Section Expansions (Cat C): {cat_c_expanded_count}")
+
+# Save Category B+C predictions
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+bc_pred_path = os.path.join(OUTPUT_DIR, "finetuned_13b_cat_bc_predictions.json")
+with open(bc_pred_path, "w") as f:
+    json.dump(cat_bc_predictions, f, indent=2)
+print(f"Saved: {bc_pred_path}")
+
+
+# %% [code]
+# =============================================================================
+# CELL 14: CATEGORY B + C ZERO-LEAKAGE SCORECARD & EVALUATION
+# =============================================================================
+print("\n" + "=" * 70)
+print("CELL 14: CATEGORY B + C SCORECARD")
+print("=" * 70)
+
+base_correct = 0
+agent_correct = 0
+recovered = []
+degraded = []
+
+for qid, b_item in step3_baseline.items():
+    a_item = cat_bc_predictions[qid]
+    gt = b_item.get("ground_truth_answers", "")
+    
+    b_match = check_match(b_item.get("prediction", ""), gt)
+    a_match = check_match(a_item.get("prediction", ""), gt)
+    
+    if b_match:
+        base_correct += 1
+    if a_match:
+        agent_correct += 1
+        
+    if not b_match and a_match:
+        recovered.append(qid)
+    elif b_match and not a_match:
+        degraded.append(qid)
+
+total_q = len(step3_baseline)
+base_acc = base_correct / total_q * 100.0
+agent_acc = agent_correct / total_q * 100.0
+net_gain = len(recovered) - len(degraded)
+
+print(f"\n{'Metric':<35} | {'Baseline (OMGM)':<20} | {'Ours (Cat B+C 13B)':<20} | {'Delta':<15}")
+print("-" * 96)
+print(f"{'Overall VQA Accuracy':<35} | {base_acc:.2f}% ({base_correct}/{total_q}){'':<4} | {agent_acc:.2f}% ({agent_correct}/{total_q}){'':<4} | +{agent_acc - base_acc:+.2f}% (+{net_gain})")
+print(f"{'Gross Recoveries (Wrong->Right)':<35} | {'0 (rigid)':<20} | {len(recovered):<20} | +{len(recovered)}")
+print(f"{'Degradations (Right->Wrong)':<35} | {'0 (rigid)':<20} | {len(degraded):<20} | -{len(degraded)}")
+print(f"{'Net Improvement':<35} | {'0':<20} | {net_gain:+d} queries{'':<10} | Honest Net")
+win_rate = (len(recovered) / (len(recovered) + len(degraded)) * 100) if (recovered or degraded) else 0.0
+print(f"{'Decision Win-Rate on Flips':<35} | {'--':<20} | {win_rate:.2f}%{'':<14} | ({len(recovered)}/{len(recovered)+len(degraded)})")
+print("=" * 96)

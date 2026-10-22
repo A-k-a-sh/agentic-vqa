@@ -720,8 +720,281 @@ for fn in os.listdir(OUTPUT_DIR):
     print(f"  - {fn} ({sz:.1f} KB)")
 print("\nDone! Download these files from Kaggle's Output tab.")
 
+# %% [markdown]
+# ### Cell 13: Category B + C Agentic Controller (Multi-Section Context Expansion)
+# Extends the fine-tuned 7B controller to address Category C (Section Selection Errors)
+# by concatenating Top-1 and Top-2 Wikipedia sections when Candidate 1 is verified.
 
-# %% [code]
+# %%
+print("\n" + "=" * 70)
+print("CELL 13: CATEGORY B + C CONTROLLER (MULTI-SECTION CONTEXT EXPANSION - 7B)")
+print("=" * 70)
+
+def select_top2_sections_combined(question: str, entry: Optional[KnowledgeEntry], max_chars: int = 3200) -> Tuple[str, str]:
+    """
+    Returns (top1_section, combined_top2_sections).
+    Combines Top-1 and Top-2 sections to solve Category C (Section Selection Errors: 203 queries).
+    """
+    if not entry:
+        return "", ""
+    sections = reconstruct_wiki_sections(entry)
+    if not sections:
+        return "", ""
+    if len(sections) == 1:
+        return sections[0], sections[0]
+
+    # Rank sections using BGE sequence classification
+    if bge_model is not None and torch.cuda.is_available():
+        try:
+            pairs = [[question, s[:1200]] for s in sections]
+            inp = bge_tokenizer(pairs, padding=True, truncation=True, return_tensors="pt", max_length=512).to("cuda")
+            with torch.no_grad():
+                scores = bge_model(**inp).logits.view(-1).float().cpu().tolist()
+            ranked_indices = np.argsort(scores)[::-1]
+            top1 = sections[ranked_indices[0]]
+            top2 = sections[ranked_indices[1]] if len(ranked_indices) > 1 else ""
+
+            combined = f"{top1}\n\n--- [Additional Section Evidence] ---\n\n{top2}" if top2 else top1
+            return top1, combined[:max_chars]
+        except Exception:
+            pass
+
+    # Lexical fallback ranking
+    stopwords = {"what", "is", "the", "of", "this", "in", "how", "many", "a", "an", "to", "for", "does", "do", "which", "where", "who", "when", "why"}
+    qw = [w.lower() for w in re.findall(r"\b\w+\b", question) if w.lower() not in stopwords]
+    scored_secs = []
+    for sec in sections:
+        sl = sec.lower()
+        sc = sum(5.0 if w in sl.split("\n")[1] else 1.0 if w in sl else 0.0 for w in qw)
+        scored_secs.append((sc, sec))
+    scored_secs.sort(key=lambda x: x[0], reverse=True)
+    top1 = scored_secs[0][1]
+    top2 = scored_secs[1][1] if len(scored_secs) > 1 else ""
+    combined = f"{top1}\n\n--- [Additional Section Evidence] ---\n\n{top2}" if top2 else top1
+    return top1, combined[:max_chars]
+
+# Checkpoint support for Category B+C
+checkpoint_bc_path = os.path.join(OUTPUT_DIR, "finetuned_7b_cat_bc_checkpoint.json")
+
+if os.path.exists(checkpoint_bc_path):
+    print(f"Found existing Category B+C checkpoint at '{checkpoint_bc_path}'. Resuming...")
+    with open(checkpoint_bc_path, "r") as f:
+        cat_bc_predictions = json.load(f)
+    print(f"Resumed {len(cat_bc_predictions):,} entries.")
+else:
+    cat_bc_predictions = {
+        qid: {
+            **info,
+            "agent_triggered": False,
+            "agent_switched_to_b": False,
+            "action_note": "Fast-Path Baseline"
+        }
+        for qid, info in step3_baseline.items()
+    }
+
+switched_b_count = sum(1 for p in cat_bc_predictions.values() if p.get("agent_switched_to_b", False))
+cat_c_expanded_count = sum(1 for p in cat_bc_predictions.values() if "Expanded Top-2 Sections" in p.get("action_note", ""))
+loop_start = time.time()
+
+remaining_ambiguous = [qid for qid in ambiguous_qids if not cat_bc_predictions[qid].get("agent_triggered", False)]
+print(f"Processing {len(remaining_ambiguous)} / {len(ambiguous_qids)} remaining ambiguous queries for Category B+C...")
+
+for i, qid in enumerate(tqdm(remaining_ambiguous, desc="Fine-Tuned 7B Cat B+C Loop")):
+    s2_data = step2_results[qid]
+    b_info = step3_baseline[qid]
+    question = b_info["question"]
+
+    cands = s2_data.get("retrieved_entities", [])
+    if len(cands) < 2:
+        continue
+
+    title1 = cands[0].get("title", "Candidate 1")
+    title2 = cands[1].get("title", "Candidate 2")
+    url1   = cands[0].get("url", "").strip()
+    url2   = cands[1].get("url", "").strip()
+
+    # Load query image
+    img_id = sample_meta.get(qid, {}).get("image_id") or b_info.get("dataset_image_ids", qid)
+    raw_img = get_query_image(img_id, QUERY_IMG_DIR)
+
+    # 1. Single-pass fine-tuned visual verification (Category B)
+    choice, dec = ask_visual_choice_finetuned(raw_img, title1, title2)
+    switch_to_b = (choice == "B")
+
+    if switch_to_b:
+        # Category B: Switch to Candidate 2 with its top-2 sections
+        switched_b_count += 1
+        _, sec2_combined = select_top2_sections_combined(question, kb_dict.get(url2))
+        if not sec2_combined:
+            sec2_text, _ = select_best_section(question, kb_dict.get(url2))
+            sec2_combined = sec2_text
+        action_note = f"Switched to {title2} (Cat B LoRA: {dec})"
+        new_pred = generate_answer(raw_img, question, sec2_combined, max_chars=3200)
+    else:
+        # Category C: Candidate 1 verified, but expand to Top-1 + Top-2 sections
+        cat_c_expanded_count += 1
+        _, sec1_combined = select_top2_sections_combined(question, kb_dict.get(url1))
+        if not sec1_combined:
+            sec1_combined = b_info.get("top1_section", "")
+        action_note = f"Kept {title1} + Expanded Top-2 Sections (Cat C)"
+        new_pred = generate_answer(raw_img, question, sec1_combined, max_chars=3200)
+
+    cat_bc_predictions[qid].update({
+        "prediction": new_pred,
+        "agent_triggered": True,
+        "agent_switched_to_b": switch_to_b,
+        "action_note": action_note,
+        "verifier_output": dec,
+    })
+
+    if (i + 1) % 50 == 0 or (i + 1) == len(remaining_ambiguous):
+        with open(checkpoint_bc_path, "w") as f:
+            json.dump(cat_bc_predictions, f, indent=2)
+        elapsed = time.time() - loop_start
+        print(f"  Checkpoint @ {i+1}/{len(remaining_ambiguous)} | Elapsed: {elapsed/60:.1f} min | Switches: {switched_b_count} | Expansions: {cat_c_expanded_count}")
+
+total_time = time.time() - loop_start
+print(f"\nCategory B+C Controller Finished in {total_time/60:.1f} minutes ({total_time/max(1, len(remaining_ambiguous)):.2f}s per query).")
+print(f"  Switches to Candidate 2 (Cat B) : {switched_b_count}")
+print(f"  Multi-Section Expansions (Cat C): {cat_c_expanded_count}")
+
+# Save Category B+C predictions
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+bc_pred_path = os.path.join(OUTPUT_DIR, "finetuned_7b_cat_bc_predictions.json")
+with open(bc_pred_path, "w") as f:
+    json.dump(cat_bc_predictions, f, indent=2)
+print(f"Saved: {bc_pred_path}")
 
 
-# %% [code]
+# %% [markdown]
+# ### Cell 14: Category B + C Scorecard & Statistical Evaluation (7B)
+
+# %%
+print("\n" + "=" * 70)
+print("CELL 14: CATEGORY B + C SCORECARD & EVALUATION (7B)")
+print("=" * 70)
+
+base_correct = 0
+agent_correct = 0
+rec_events = []
+deg_events = []
+
+for qid, b_item in step3_baseline.items():
+    a_item = cat_bc_predictions[qid]
+    gt = b_item.get("ground_truth_answers", "")
+
+    b_match = check_match(b_item.get("prediction", ""), gt)
+    a_match = check_match(a_item.get("prediction", ""), gt)
+    action  = a_item.get("action_note", "")
+    cat     = "Category B (Candidate 2)" if "Switched to" in action else "Category C (Multi-Section)"
+
+    if b_match:
+        base_correct += 1
+    if a_match:
+        agent_correct += 1
+
+    if not b_match and a_match:
+        rec_events.append({
+            "qid": qid,
+            "category": cat,
+            "question": a_item["question"],
+            "action": action,
+            "old_pred": b_item["prediction"],
+            "new_pred": a_item["prediction"],
+            "gt": gt
+        })
+    elif b_match and not a_match:
+        deg_events.append({
+            "qid": qid,
+            "category": cat,
+            "question": a_item["question"],
+            "action": action,
+            "old_pred": b_item["prediction"],
+            "new_pred": a_item["prediction"],
+            "gt": gt
+        })
+
+total_q   = len(step3_baseline)
+base_acc  = base_correct / total_q * 100.0
+agent_acc = agent_correct / total_q * 100.0
+net_gain  = len(rec_events) - len(deg_events)
+
+rec_b = sum(1 for e in rec_events if "Category B" in e["category"])
+rec_c = sum(1 for e in rec_events if "Category C" in e["category"])
+deg_b = sum(1 for e in deg_events if "Category B" in e["category"])
+deg_c = sum(1 for e in deg_events if "Category C" in e["category"])
+
+# McNemar's test with continuity correction
+b_count = len(deg_events)  # Baseline right, Agent wrong
+c_count = len(rec_events)  # Baseline wrong, Agent right
+n_discordant = b_count + c_count
+if n_discordant > 0:
+    mcnemar_chi2 = ((abs(b_count - c_count) - 1.0) ** 2) / n_discordant
+    import scipy.stats as stats
+    try:
+        mcnemar_p = stats.chi2.sf(mcnemar_chi2, df=1)
+    except Exception:
+        import math
+        mcnemar_p = math.erfc(math.sqrt(mcnemar_chi2) / math.sqrt(2.0))
+else:
+    mcnemar_chi2 = 0.0
+    mcnemar_p = 1.0
+
+win_rate = (len(rec_events) / n_discordant * 100) if n_discordant > 0 else 0.0
+
+print(f"\n{'Metric':<38} | {'Baseline (OMGM)':<20} | {'Ours (Cat B+C 7B)':<20} | {'Delta':<15}")
+print("-" * 100)
+print(f"{'Overall VQA Accuracy':<38} | {base_acc:.2f}% ({base_correct}/{total_q}){'':<4} | {agent_acc:.2f}% ({agent_correct}/{total_q}){'':<4} | +{agent_acc - base_acc:+.2f}% (+{net_gain})")
+print(f"{'Gross Recoveries (Wrong->Right)':<38} | {'0 (rigid)':<20} | {len(rec_events):<20} | +{len(rec_events)}")
+print(f"{'  - Category B Recoveries (Cand 2)':<38} | {'--':<20} | {rec_b:<20} | +{rec_b}")
+print(f"{'  - Category C Recoveries (Multi-Sec)':<38} | {'--':<20} | {rec_c:<20} | +{rec_c}")
+print(f"{'Degradations (Right->Wrong)':<38} | {'0 (rigid)':<20} | {len(deg_events):<20} | -{len(deg_events)}")
+print(f"{'  - Category B Degradations (Cand 2)':<38} | {'--':<20} | {deg_b:<20} | -{deg_b}")
+print(f"{'  - Category C Degradations (Multi-Sec)':<38} | {'--':<20} | {deg_c:<20} | -{deg_c}")
+print(f"{'Net Gain from Category B':<38} | {'--':<20} | {rec_b - deg_b:+d} queries{'':<10} | Cat B Net")
+print(f"{'Net Gain from Category C':<38} | {'--':<20} | {rec_c - deg_c:+d} queries{'':<10} | Cat C Net")
+print(f"{'Overall Net Improvement':<38} | {'0':<20} | {net_gain:+d} queries{'':<10} | Honest Net")
+print(f"{'Decision Win-Rate on Flips':<38} | {'--':<20} | {win_rate:.2f}%{'':<14} | ({len(rec_events)}/{n_discordant})")
+print(f"{'McNemar Chi-Squared (p-val)':<38} | {'--':<20} | {mcnemar_chi2:.3f} (p={mcnemar_p:.4f}) | Significance")
+print("=" * 100)
+
+# Save structured summary and recovery audit JSONs
+summary_bc = {
+    "model": "LLaVA-1.5-7B + LoRA Verifier + Multi-Section Expansion (Category B+C)",
+    "lora_adapter": LORA_ADAPTER,
+    "tau": TAU,
+    "total_queries": total_q,
+    "baseline_accuracy": round(base_acc, 2),
+    "agentic_accuracy": round(agent_acc, 2),
+    "accuracy_improvement": round(agent_acc - base_acc, 2),
+    "net_recovered_queries": net_gain,
+    "gross_recovered_queries": len(rec_events),
+    "gross_recovered_cat_b": rec_b,
+    "gross_recovered_cat_c": rec_c,
+    "degraded_queries": len(deg_events),
+    "degraded_cat_b": deg_b,
+    "degraded_cat_c": deg_c,
+    "net_cat_b": rec_b - deg_b,
+    "net_cat_c": rec_c - deg_c,
+    "decision_win_rate_pct": round(win_rate, 2),
+    "mcnemar_chi2": round(mcnemar_chi2, 4),
+    "mcnemar_p_value": round(mcnemar_p, 5),
+    "total_ambiguous_triggered": len(ambiguous_qids),
+    "switched_to_b_count": switched_b_count,
+    "multi_section_expanded_count": cat_c_expanded_count,
+    "runtime_minutes": round(total_time / 60, 2)
+}
+
+summary_bc_path = os.path.join(OUTPUT_DIR, "finetuned_7b_cat_bc_results_summary.json")
+with open(summary_bc_path, "w") as f:
+    json.dump(summary_bc, f, indent=2)
+
+rec_bc_path = os.path.join(OUTPUT_DIR, "finetuned_7b_cat_bc_recovered_queries.json")
+with open(rec_bc_path, "w") as f:
+    json.dump({"recovered_events": rec_events, "degraded_events": deg_events}, f, indent=2)
+
+print(f"\nSaved Category B+C artifacts:")
+print(f"  - {bc_pred_path}")
+print(f"  - {summary_bc_path}")
+print(f"  - {rec_bc_path}")
+
