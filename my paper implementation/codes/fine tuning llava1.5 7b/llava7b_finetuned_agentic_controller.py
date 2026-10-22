@@ -1,24 +1,13 @@
-# %% [markdown]
-# # =============================================================================
-# # Fine-Tuned LLaVA-1.5-7B Agentic Controller for KB-VQA (InfoSeek)
-# # =============================================================================
-# # Identical architecture to `kaggle_agentic_controller.py` (zero-shot 7B) EXCEPT:
-# #   - The LoRA adapter (`llava_verifier_lora`) is attached via PeftModel
-# #     BEFORE the visual verification call (`ask_visual_choice_finetuned`)
-# #   - `ask_visual_choice_finetuned` uses a SINGLE-PASS prompt (no two-pass
-# #     debiasing needed — primacy bias was eliminated by symmetric fine-tuning)
-# #   - Both baseline generator and LoRA verifier share the same 4-bit base model
-# #     (zero additional VRAM cost for the adapter)
-# #
-# # Verified LoRA Adapter Path (kaggle_ds_paths.md):
-# #   /kaggle/input/datasets/alphacentauriv/agentic-vqa-ds/llava_verifier_lora
-# # =============================================================================
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T06:28:06.893438Z","iopub.execute_input":"2026-10-22T06:28:06.893713Z","iopub.status.idle":"2026-10-22T06:28:14.895544Z","shell.execute_reply.started":"2026-10-22T06:28:06.893690Z","shell.execute_reply":"2026-10-22T06:28:14.894539Z"}}
+!pip install -q -U bitsandbytes accelerate peft
 
-# %% [markdown]
-# ### Cell 0: Install Dependencies
 
-# %%
-# !pip install -q -U bitsandbytes accelerate peft
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T06:28:14.897376Z","iopub.execute_input":"2026-10-22T06:28:14.897685Z","iopub.status.idle":"2026-10-22T06:28:36.892564Z","shell.execute_reply.started":"2026-10-22T06:28:14.897660Z","shell.execute_reply":"2026-10-22T06:28:36.891879Z"}}
+!pip install -q sentencepiece protobuf
+!pip install -q timm einops fairscale faiss-cpu iopath decord webdataset omegaconf pycocoevalcap
+
+
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T06:31:31.802394Z","iopub.execute_input":"2026-10-22T06:31:31.802977Z","iopub.status.idle":"2026-10-22T06:32:02.549106Z","shell.execute_reply.started":"2026-10-22T06:31:31.802947Z","shell.execute_reply":"2026-10-22T06:32:02.548480Z"}}
 
 import subprocess, sys
 def ensure_package(pkg, imp=None):
@@ -32,6 +21,9 @@ ensure_package("bitsandbytes")
 ensure_package("accelerate")
 ensure_package("peft")
 print("All dependencies ready.")
+
+
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T06:33:38.296712Z","iopub.execute_input":"2026-10-22T06:33:38.297287Z","iopub.status.idle":"2026-10-22T06:33:38.819610Z","shell.execute_reply.started":"2026-10-22T06:33:38.297260Z","shell.execute_reply":"2026-10-22T06:33:38.818761Z"}}
 
 # %% [markdown]
 # ### Cell 1: Imports, Seeds & Path Configuration
@@ -107,6 +99,9 @@ print(f"  LoRA Adapter  : {LORA_ADAPTER}  (exists: {os.path.isdir(LORA_ADAPTER)}
 print(f"  Tau Threshold : {TAU}")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+
+
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T06:33:43.954786Z","iopub.execute_input":"2026-10-22T06:33:43.955415Z","iopub.status.idle":"2026-10-22T06:33:43.965234Z","shell.execute_reply.started":"2026-10-22T06:33:43.955386Z","shell.execute_reply":"2026-10-22T06:33:43.964340Z"}}
 # %% [markdown]
 # ### Cell 2: Evaluation Metric Helpers (OMGM official `check_match`)
 
@@ -150,6 +145,9 @@ def check_match(pred: str, gt: Any) -> bool:
 
 print("Evaluation helpers loaded (normalize_answer, check_match with ±10% numeric tolerance).")
 
+
+
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T06:33:51.433953Z","iopub.execute_input":"2026-10-22T06:33:51.434474Z","iopub.status.idle":"2026-10-22T06:33:51.443744Z","shell.execute_reply.started":"2026-10-22T06:33:51.434444Z","shell.execute_reply":"2026-10-22T06:33:51.442975Z"}}
 # %% [markdown]
 # ### Cell 3: Knowledge Base & Query Image Helpers
 
@@ -187,6 +185,9 @@ def get_query_image(image_id: str, search_dir: str) -> PIL.Image.Image:
 
 print("KnowledgeEntry class and image helpers loaded.")
 
+
+
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T06:33:56.505706Z","iopub.execute_input":"2026-10-22T06:33:56.506253Z","iopub.status.idle":"2026-10-22T06:34:14.927117Z","shell.execute_reply.started":"2026-10-22T06:33:56.506209Z","shell.execute_reply":"2026-10-22T06:34:14.926261Z"}}
 # %% [markdown]
 # ### Cell 4: BGE Section Reranker Initialization
 
@@ -237,6 +238,9 @@ def select_best_section(question: str, entry: Optional[KnowledgeEntry]) -> Tuple
 
 init_bge_reranker("cuda" if torch.cuda.is_available() else "cpu")
 
+
+
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T06:34:43.217171Z","iopub.execute_input":"2026-10-22T06:34:43.217650Z","iopub.status.idle":"2026-10-22T06:36:34.773651Z","shell.execute_reply.started":"2026-10-22T06:34:43.217623Z","shell.execute_reply":"2026-10-22T06:36:34.772695Z"}}
 # %% [markdown]
 # ### Cell 5: LLaVA-1.5-7B Base Model + LoRA Adapter Loading
 # Loads the 4-bit base model first, then attaches the fine-tuned LoRA adapter.
@@ -291,24 +295,93 @@ if torch.cuda.is_available():
         alloc = torch.cuda.memory_allocated(i) / 1024**3
         print(f"  After LoRA attach — GPU [{i}]: {alloc:.2f} GB allocated")
 
+print("\n4. Verification: Confirm adapter config keys:")
+print(f"   Adapter trainable params visible: {sum(p.numel() for p in verifier_model.parameters() if p.requires_grad):,}")
+
+
+
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T06:40:17.342637Z","iopub.execute_input":"2026-10-22T06:40:17.343333Z","iopub.status.idle":"2026-10-22T06:40:17.370300Z","shell.execute_reply.started":"2026-10-22T06:40:17.343304Z","shell.execute_reply":"2026-10-22T06:40:17.369521Z"}}
 print("\n4. Verification: Confirm LoRA Adapter is Active (Inference Mode)")
-# NOTE: PeftModel.from_pretrained() wraps base_model in-place, so parameter
-# subtraction gives 0. Instead, read adapter config directly for true LoRA stats.
-cfg = list(verifier_model.peft_config.values())[0]
-lora_r = cfg.r
-lora_target = cfg.target_modules
+# In .eval() mode all params have requires_grad=False — this is correct and expected.
+# The real check: total LoRA weight count and active adapter list.
+total_lora_params = sum(p.numel() for p in verifier_model.parameters())
+lora_delta_params = total_lora_params - sum(p.numel() for p in base_model.parameters())
+print(f"   Total model params (base + LoRA deltas): {total_lora_params:,}")
+print(f"   Estimated LoRA delta params: {lora_delta_params:,}")
 print(f"   Active adapter(s): {list(verifier_model.peft_config.keys())}")
-print(f"   Adapter type     : {cfg.peft_type}")
-print(f"   LoRA rank (r)    : {lora_r}")
-print(f"   LoRA target mods : {lora_target}")
+print(f"   Adapter type: {list(verifier_model.peft_config.values())[0].peft_type}")
+# Confirm safetensors file is present in the adapter directory
 adapter_weights_file = os.path.join(LORA_ADAPTER, "adapter_model.safetensors")
-print(f"   Adapter weights  : {adapter_weights_file} (exists: {os.path.exists(adapter_weights_file)})")
-vram_note = "+{:.0f} MB".format(sum(torch.cuda.memory_allocated(i) for i in range(torch.cuda.device_count())) / 1024**2) if torch.cuda.is_available() else "N/A"
-print(f"   Total VRAM now   : {vram_note} (delta from base = ~163 MB = adapter weights loaded ✓)")
-print("   NOTE: requires_grad=False is CORRECT for inference. LoRA hooks are active.")
-print("   NOTE: generate_answer() will use disable_adapter() to restore pure base model.")
+print(f"   Adapter weights file: {adapter_weights_file} (exists: {os.path.exists(adapter_weights_file)})")
+print("   NOTE: requires_grad=False is CORRECT for inference — LoRA weights are active and applied.")
 assert os.path.exists(adapter_weights_file), "CRITICAL: adapter_model.safetensors missing!"
 
+
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T06:41:06.168873Z","iopub.execute_input":"2026-10-22T06:41:06.169418Z","iopub.status.idle":"2026-10-22T06:41:18.674954Z","shell.execute_reply.started":"2026-10-22T06:41:06.169390Z","shell.execute_reply":"2026-10-22T06:41:18.673938Z"}}
+print("\n" + "=" * 70)
+print("CELL 5: LLaVA-1.5-7B BASE MODEL + LoRA ADAPTER LOADING")
+print("=" * 70)
+
+from transformers import AutoProcessor, LlavaForConditionalGeneration, BitsAndBytesConfig
+from peft import PeftModel
+
+MODEL_ID = "llava-hf/llava-1.5-7b-hf"
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+print(f"1. Loading processor from '{MODEL_ID}'...")
+processor = AutoProcessor.from_pretrained(MODEL_ID)
+if processor.tokenizer.pad_token is None:
+    processor.tokenizer.pad_token = processor.tokenizer.unk_token
+processor.tokenizer.padding_side = "right"
+
+print("2. Loading base LLaVA-1.5-7B in 4-bit NF4...")
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.float16,
+    bnb_4bit_use_double_quant=True
+)
+base_model = LlavaForConditionalGeneration.from_pretrained(
+    MODEL_ID,
+    quantization_config=bnb_config,
+    torch_dtype=torch.float16,
+    device_map="auto",
+    low_cpu_mem_usage=True
+).eval()
+
+if torch.cuda.is_available():
+    for i in range(torch.cuda.device_count()):
+        alloc = torch.cuda.memory_allocated(i) / 1024**3
+        print(f"  After base model — GPU [{i}]: {alloc:.2f} GB allocated")
+
+print(f"\n3. Attaching Fine-Tuned LoRA Adapter from: '{LORA_ADAPTER}'")
+assert os.path.isdir(LORA_ADAPTER), f"LoRA adapter directory not found: {LORA_ADAPTER}"
+verifier_model = PeftModel.from_pretrained(base_model, LORA_ADAPTER)
+verifier_model.eval()
+print("   LoRA adapter attached successfully.")
+
+if torch.cuda.is_available():
+    for i in range(torch.cuda.device_count()):
+        alloc = torch.cuda.memory_allocated(i) / 1024**3
+        print(f"  After LoRA attach — GPU [{i}]: {alloc:.2f} GB allocated")
+
+print("\n4. Verification: Confirm LoRA Adapter is Active (Inference Mode)")
+# In .eval() mode all params have requires_grad=False — this is correct and expected.
+# The real check: total LoRA weight count and active adapter list.
+total_lora_params = sum(p.numel() for p in verifier_model.parameters())
+lora_delta_params = total_lora_params - sum(p.numel() for p in base_model.parameters())
+print(f"   Total model params (base + LoRA deltas): {total_lora_params:,}")
+print(f"   Estimated LoRA delta params: {lora_delta_params:,}")
+print(f"   Active adapter(s): {list(verifier_model.peft_config.keys())}")
+print(f"   Adapter type: {list(verifier_model.peft_config.values())[0].peft_type}")
+# Confirm safetensors file is present in the adapter directory
+adapter_weights_file = os.path.join(LORA_ADAPTER, "adapter_model.safetensors")
+print(f"   Adapter weights file: {adapter_weights_file} (exists: {os.path.exists(adapter_weights_file)})")
+print("   NOTE: requires_grad=False is CORRECT for inference — LoRA weights are active and applied.")
+assert os.path.exists(adapter_weights_file), "CRITICAL: adapter_model.safetensors missing!"
+
+
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T06:43:42.029445Z","iopub.execute_input":"2026-10-22T06:43:42.030291Z","iopub.status.idle":"2026-10-22T06:43:42.041168Z","shell.execute_reply.started":"2026-10-22T06:43:42.030263Z","shell.execute_reply":"2026-10-22T06:43:42.040370Z"}}
 # %% [markdown]
 # ### Cell 6: Inference Helper Functions
 # `ask_visual_choice_finetuned` — replaces the two-pass zero-shot debiaser.
@@ -332,19 +405,14 @@ OMGM_INSTRUCTION = (
 )
 
 def generate_answer(img: PIL.Image.Image, question: str, section_text: str, max_chars: int = 2500) -> str:
-    """
-    Generate factual answer using pure base model (OMGM-style encyclopedic VQA).
-    Uses disable_adapter() to bypass the LoRA verifier for this call, maintaining
-    exact parity with zero-shot 7B baseline generation.
-    """
+    """Generate factual answer using the BASE model (no LoRA adapter — standard OMGM generation)."""
     trimmed = section_text[:max_chars]
     prompt_text = OMGM_INSTRUCTION + f"- Context: {trimmed}\n- Question: {question}\nJust answer the questions , no explanations needed. Short answer is:"
     full_prompt = f"USER: <image>\n{prompt_text}\nASSISTANT:"
     inputs = processor(images=img, text=full_prompt, return_tensors="pt").to(device)
     with torch.no_grad():
-        # disable_adapter() restores the pure base model for answer generation
-        with verifier_model.disable_adapter():
-            out = verifier_model.generate(**inputs, max_new_tokens=32, do_sample=False)
+        # Use base_model (without LoRA) for generation to maintain answer style parity
+        out = base_model.generate(**inputs, max_new_tokens=32, do_sample=False)
     plen = inputs.input_ids.shape[1]
     return processor.decode(out[0][plen:], skip_special_tokens=True).strip()
 
@@ -380,6 +448,9 @@ print("Inference helpers loaded:")
 print("  - generate_answer()            → base_model (no LoRA, OMGM-style VQA)")
 print("  - ask_visual_choice_finetuned() → verifier_model (base + LoRA, single-pass)")
 
+
+
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T06:43:42.042736Z","iopub.execute_input":"2026-10-22T06:43:42.043105Z","iopub.status.idle":"2026-10-22T06:43:43.415551Z","shell.execute_reply.started":"2026-10-22T06:43:42.043072Z","shell.execute_reply":"2026-10-22T06:43:43.414850Z"}}
 # %% [markdown]
 # ### Cell 7: Data Loading & Baseline Analysis
 
@@ -420,6 +491,9 @@ print(f"Score Margin — Mean: {np.mean(margins):.4f} | Min: {np.min(margins):.4
 print(f"Ambiguous Queries (Δ < {TAU}): {len(ambiguous_qids)} / {total_q} ({len(ambiguous_qids)/total_q*100:.1f}%)")
 print(f"Fast-Path Queries (Δ ≥ {TAU}): {total_q - len(ambiguous_qids)} / {total_q} ({(total_q - len(ambiguous_qids))/total_q*100:.1f}%)")
 
+
+
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T06:43:43.416502Z","iopub.execute_input":"2026-10-22T06:43:43.416853Z","iopub.status.idle":"2026-10-22T06:44:00.686063Z","shell.execute_reply.started":"2026-10-22T06:43:43.416827Z","shell.execute_reply":"2026-10-22T06:44:00.685246Z"}}
 # %% [markdown]
 # ### Cell 8: Knowledge Base Loading
 
@@ -442,6 +516,9 @@ kb_dict = {
 del raw_kb; gc.collect()
 print(f"Loaded {len(kb_dict):,} Wikipedia articles in {time.time()-t0:.1f}s.")
 
+
+
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T06:44:00.687276Z","iopub.execute_input":"2026-10-22T06:44:00.687620Z","iopub.status.idle":"2026-10-22T06:44:09.637151Z","shell.execute_reply.started":"2026-10-22T06:44:00.687589Z","shell.execute_reply":"2026-10-22T06:44:09.636366Z"}}
 # %% [markdown]
 # ### Cell 9: Pilot Run — Verify LoRA Verifier on 3 Ambiguous Queries (Visible Output)
 
@@ -473,6 +550,9 @@ for pilot_did in ambiguous_qids[:3]:
     print(f"Baseline Correct: {check_match(p_item.get('prediction',''), p_item.get('ground_truth_answers',''))}")
 print("-" * 65)
 
+
+
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T06:44:09.638865Z","iopub.execute_input":"2026-10-22T06:44:09.639241Z","iopub.status.idle":"2026-10-22T07:11:34.837270Z","shell.execute_reply.started":"2026-10-22T06:44:09.639175Z","shell.execute_reply":"2026-10-22T07:11:34.836542Z"}}
 # %% [markdown]
 # ### Cell 10: Main Agentic Controller Loop (Fine-Tuned Verifier)
 
@@ -550,6 +630,9 @@ print(f"\nAgentic Loop Finished in {total_loop_time:.1f}s ({total_loop_time/len(
 print(f"Visual switches to Candidate 2: {switched_b}")
 print(f"Category C section refreshes:   {cat_c_refreshed}")
 
+
+
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T07:11:34.838572Z","iopub.execute_input":"2026-10-22T07:11:34.838911Z","iopub.status.idle":"2026-10-22T07:11:34.948301Z","shell.execute_reply.started":"2026-10-22T07:11:34.838889Z","shell.execute_reply":"2026-10-22T07:11:34.947677Z"}}
 # %% [markdown]
 # ### Cell 11: Final Zero-Leakage Evaluation & Comparative Results Table
 
@@ -595,6 +678,9 @@ print(f"{'Net Improvement':<35} | {'0':<20} | {net_rec:+d}{' queries':<19} | Hon
 print(f"{'Avg. Generator Calls/Query':<35} | {'1.00':<20} | {avg_calls:.2f}{'':18} | +{avg_calls-1:.2f} overhead")
 print("=" * 90)
 
+
+
+# %% [code] {"execution":{"iopub.status.busy":"2026-10-22T07:11:34.949320Z","iopub.execute_input":"2026-10-22T07:11:34.949660Z","iopub.status.idle":"2026-10-22T07:11:34.993494Z","shell.execute_reply.started":"2026-10-22T07:11:34.949620Z","shell.execute_reply":"2026-10-22T07:11:34.992663Z"}}
 # %% [markdown]
 # ### Cell 12: Save All Results & Download Package
 
@@ -633,3 +719,9 @@ for fn in os.listdir(OUTPUT_DIR):
     sz = os.path.getsize(os.path.join(OUTPUT_DIR, fn)) / 1024
     print(f"  - {fn} ({sz:.1f} KB)")
 print("\nDone! Download these files from Kaggle's Output tab.")
+
+
+# %% [code]
+
+
+# %% [code]
