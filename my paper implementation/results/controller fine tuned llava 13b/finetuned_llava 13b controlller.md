@@ -123,3 +123,30 @@ Decision Win-Rate on Flips          | --                   |  57.45%            
 McNemar Chi-Squared (p-val)         | --                   |  0.766               | Chi2 stat
 Avg. Generator Calls/Query          | 1.00                 | 1.51                   | +0.51 overhead
 ==========================================================================================
+
+
+======================================================================
+CELL 13: CATEGORY B + C CONTROLLER (MULTI-SECTION CONTEXT EXPANSION)
+======================================================================
+Executing Category B+C Controller on 508 ambiguous queries...
+Category B+C Controller: 100%
+ 508/508 [52:18<00:00,  6.21s/it]
+
+Category B+C Controller Finished in 52.3 minutes.
+  Switches to Candidate 2 (Cat B) : 195
+  Multi-Section Expansions (Cat C): 313
+Saved: /kaggle/working/agentic_results_finetuned_13b/finetuned_13b_cat_bc_predictions.json
+
+
+======================================================================
+CELL 14: CATEGORY B + C SCORECARD
+======================================================================
+
+Metric                              | Baseline (OMGM)      | Ours (Cat B+C 13B)   | Delta          
+------------------------------------------------------------------------------------------------
+Overall VQA Accuracy                | 34.90% (349/1000)     | 36.30% (363/1000)     | ++1.40% (+14)
+Gross Recoveries (Wrong->Right)     | 0 (rigid)            | 44                   | +44
+Degradations (Right->Wrong)         | 0 (rigid)            | 30                   | -30
+Net Improvement                     | 0                    | +14 queries           | Honest Net
+Decision Win-Rate on Flips          | --                   | 59.46%               | (44/74)
+================================================================================================
