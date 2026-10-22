@@ -234,9 +234,9 @@ To overcome the zero-shot failure modes identified in Section 7.4, we trained a 
 - **Hardware:** 2x NVIDIA Tesla T4 (16GB VRAM each), Kaggle Environment
 - **Quantization:** 4-bit NF4 with double quantization via BitsAndBytes (`bnb_4bit_compute_dtype=torch.float16`)
 - **LoRA Configuration:** $r=16, \alpha=32, \text{dropout}=0.05$, targeting all linear projection layers (`q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj`)
-- **Optimization:** AdamW 8-bit, Cosine Annealing LR ($2\times 10^{-4}$ peak), warmup ratio 0.05
-- **Batching:** Per-device batch size 2, gradient accumulation 4 (effective batch size = 16 across 2 GPUs)
-- **Duration & Loss:** 2 Epochs (3,000 total steps) completed in **254.65 minutes** (~4.2 hours). Final batch loss: **0.0065**.
+- **Optimization:** AdamW 8-bit, Cosine Annealing LR ($1.5\times 10^{-4}$ peak), warmup steps 75
+- **Batching:** Per-device batch size 2, gradient accumulation 4 (effective batch size = 8)
+- **Duration & Loss:** **1 Epoch** (3,000 batches / 750 optimizer update steps) completed in **254.65 minutes** (~4.25 hours). Final batch loss: **0.0065**.
 
 #### Held-Out Validation Benchmark (600 Symmetric Pairs, Cell 8):
 
