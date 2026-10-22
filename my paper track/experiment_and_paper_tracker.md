@@ -12,7 +12,7 @@
 
 Knowledge-Based Visual Question Answering (KB-VQA) requires external world knowledge to answer questions about visual entities. While state-of-the-art systems like OMGM (ACL 2025) design multi-stage pipelines to retrieve relevant Wikipedia articles, they suffer from a fundamental architectural flaw: **rigidity**. Every query traverses fixed sequential steps (Step 1 coarse search $\rightarrow$ Step 2 fine-grained rerank $\rightarrow$ Step 3 answer generation) with no mechanism for uncertainty detection, verification, or adaptive branching.
 
-This tracking document records our end-to-end reproduction of OMGM's pipeline, our empirical failure analysis across 1,000 queries, and the exact experimental evidence motivating our **rule-based Agentic Retrieval Controller**.
+This tracking document records our end-to-end reproduction of OMGM's pipeline, our empirical failure analysis across 1,000 queries, and the exact experimental evidence motivating our **rule-based Agentic Retrieval Controller**. While preserving a transparent, zero-cost threshold-gated control flow ($\tau = 0.025$), we demonstrate why off-the-shelf zero-shot VLMs fail as verification tools and establish how minimal, symmetric PEFT adaptation unlocks genuine, net-positive error recovery.
 
 ---
 
@@ -64,9 +64,9 @@ To ensure scientific honesty and fairness, we evaluated on a fixed subset of 1,0
 
 | Metric | OMGM Paper (Table 4) <br> *(Full InfoSeek Benchmark)* | Our Reproduction (`step3_predictions.json`) <br> *(1,000 InfoSeek Test Queries)* | Delta vs. Paper | Status |
 | :--- | :---: | :---: | :---: | :---: |
-| **VQA Accuracy** | **33.29%** | **35.70%** (357 / 1,000) | **+2.41%** | **High Fidelity Reproduction (Official OMGM Metric)** |
+| **VQA Accuracy** | **33.29%** | **34.90%** (349 / 1,000) | **+1.61%** | **High Fidelity Reproduction (Official OMGM Metric)** |
 
-*Note on metric:* The 35.70% figure uses the official OMGM `check_match` function with ±10% numerical tolerance and multi-alias answer matching — exactly as the original paper evaluates. An earlier naive string-match gave 30.20% (302/1000) which undercounts correct numeric answers; 35.70% is the correct comparable number.
+*Note on metric:* The 34.90% (349/1,000) figure uses the official OMGM `check_match` function with ±10% numerical tolerance and multi-alias answer matching — exactly as the original paper evaluates. An earlier naive string-match gave 30.20% (302/1000) which undercounts correct numeric answers; 34.90% is the true canonical comparable number across the entire document.
 
 ---
 
@@ -76,12 +76,12 @@ To ensure scientific honesty and fairness, we evaluated on a fixed subset of 1,0
 | :--- | :---: | :---: | :--- |
 | **Step 1 (Coarse)** | 52.6% Recall@1 | 49.50% Recall@1 | Strong coarse candidate retrieval in top-20 (Recall@20 = 83.40%) |
 | **Step 2 (Reranked)** | 64.0% Recall@1 (+11.4%) | **59.10% Recall@1 (+9.6%)** | Deep image matching drives top-1 precision within 4.9% of paper |
-| **Step 3 (VQA Generation)**| 33.29% VQA Accuracy | **35.70% VQA Accuracy** | BGE section selection + LLaVA-1.5-7B answers 357/1,000 queries correctly (official metric) |
+| **Step 3 (VQA Generation)**| 33.29% VQA Accuracy | **34.90% VQA Accuracy** | BGE section selection + LLaVA-1.5-7B answers 349/1,000 queries correctly (official metric) |
 
 ### 3.2 Performance Takeaways
 1. **Near-Perfect Ceiling Match:** Our Recall@20 reached **83.40%**, falling within **1.4%** of the original paper's reported **84.8%**. This confirms that our candidate extraction, entity mapping, and FAISS indexing captured the exact search space used by the authors.
 2. **Strong Fine-Grained Reranking Gain:** Candidate image matching achieved 91.15% coverage across Wikipedia shards, driving Recall@1 from 49.50% to **59.10%** (+9.60% precision jump over coarse baseline) and Recall@5 to **76.70%**, closely mirroring the original paper's trend.
-3. **End-to-End Pipeline Completion:** Downstream VQA accuracy reached **35.70%** with LLaVA-1.5-7B zero-shot (official OMGM metric with ±10% numerical tolerance), completing the full 3-step baseline and establishing the benchmark against which our Agent Controller will be evaluated.
+3. **End-to-End Pipeline Completion:** Downstream VQA accuracy reached **34.90%** with LLaVA-1.5-7B zero-shot (official OMGM metric with ±10% numerical tolerance), completing the full 3-step baseline and establishing the benchmark against which our Agent Controller will be evaluated.
 
 ---
 
@@ -111,6 +111,8 @@ Total Test Queries: 1,000
 └── Category D (Generator Reasoning Err): 137 queries (13.70%)
     └── Cause: Correct entity + section had evidence, but LLaVA hallucinated / failed
 ```
+
+*Note on Success Count:* The 302 queries (30.20%) figure represents baseline successes under naive exact string-matching during the initial Phase 0 failure audit. When evaluated with the official OMGM metric (which incorporates ±10% numerical tolerance and multi-alias normalization), the true canonical baseline accuracy is **34.90% (349 / 1,000)**, as established in Sections 3 and 7. The relative failure proportions (Category A–D) and error signals remain fully consistent.
 
 ### Key Scientific Findings for Our Paper:
 1. **The Rigid Ranking Bottleneck (Category B + C = 40.8%):**  
@@ -173,8 +175,8 @@ To ensure rigorous scientific integrity, all results below were produced with **
 | **Baseline OMGM Accuracy** | **34.90%** (349 / 1,000) | Full pipeline top-1 baseline (official metric) |
 | **Ambiguity Triggered Queries** ($\Delta < \tau = 0.025$) | **508 / 1,000 (50.8%)** | Intrinsic score margin safely gates high-risk queries |
 | **Fast-Path Confident Queries** ($\Delta \ge 0.025$) | **492 / 1,000 (49.2%)** | Bypass controller with **0 extra compute overhead** |
-| Ambiguous-Zone Baseline Accuracy | **25.4%** (129 / 508) | Queries are 1.8x more error-prone in ambiguity zone |
-| Confident-Zone Baseline Accuracy | **46.3%** (228 / 492) | Stable baseline predictions protected by controller |
+| Ambiguous-Zone Baseline Accuracy | **25.39%** (129 / 508) | Queries are 1.8x more error-prone in ambiguity zone |
+| Confident-Zone Baseline Accuracy | **44.72%** (220 / 492) | Stable baseline predictions protected by controller ($129 + 220 = 349$) |
 
 ---
 
@@ -204,6 +206,9 @@ The experimental trajectory above provides a profound, publishable scientific co
 
 3. **Direct Scientific Motivation for Task-Specific Adapter Fine-Tuning:**  
    Rather than applying fine-tuning blindly, our failure analysis and 7B/13B ablations provide ironclad justification for the paper's final phase: **Task-Specific LoRA Verifier Fine-Tuning**. By training a lightweight adapter specifically on 50/50 symmetric entity pairs, we eliminate positional bias and raise the verifier's precision from ~47% to $\ge 62.8\%$, allowing genuine recoveries to materialize without offsetting degradations.
+
+4. **Preserving Rule-Based Control Flow while Calibrating the Verification Tool:**  
+   Our initial framework aimed for a completely training-free agentic controller. However, empirical audits revealed that off-the-shelf foundation models exhibit catastrophic instruction collapse (47.5% unparseable outputs) and severe positional bias (17.5%). Rather than adopting an opaque, heavily trained neural policy or complex reinforcement learning framework, we consciously preserve our core architectural premise: **the control flow remains transparent, deterministic, and rule-based (a single zero-cost score-margin threshold $\tau = 0.025$)**. Only the verification **tool** itself underwent minimal, targeted symmetric LoRA calibration (PEFT $r=16$) to eliminate positional bias, demonstrating that effective agentic retrieval requires tool-level calibration, not opaque control policies.
 
 ---
 
@@ -273,7 +278,7 @@ We integrated the fine-tuned LoRA verifier into the adaptive agentic controller 
 | **Switches to Candidate 2** | 0 (rigid) | **219 switches** | 43.1% switch rate across ambiguous pool |
 | **Gross Recoveries (Wrong $\to$ Right)** | 0 | **27 queries** | Rescued queries where OMGM failed |
 | **Degradations (Right $\to$ Wrong)** | 0 | **16 queries** | Kept strictly lower than recoveries |
-| **Decision Win-Rate on Flipped Queries** | -- | **62.79% (27 / 43)** | **Decisively above random chance (50%)** |
+| **Decision Win-Rate on Flipped Queries** | -- | **62.79% (27 / 43)** | **Strong positive trend above 50% coin-flip (McNemar's $p \approx 0.13$)** |
 | **Preserved Correct Queries** | 349 | **333 queries (95.4%)** | Protects baseline correct predictions |
 | **Average Generator Calls / Query** | 1.00 | **1.51 calls** | Only +0.51 call overhead per query |
 | **Agentic Loop Runtime** | -- | **27.42 minutes** | 3.24s per query on Kaggle T4x2 |
