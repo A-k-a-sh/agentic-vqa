@@ -183,7 +183,7 @@ To ensure rigorous scientific integrity, all results below were produced with **
 | Model & Controller Configuration | Overall VQA Acc | Gross Recoveries (Wrong $\to$ Right) | Degradations (Right $\to$ Wrong) | Net Change | Decision Win-Rate | Primary Failure Mechanism / Empirical Status |
 | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
 | **Baseline OMGM** (Fixed Pipeline) | 34.90% (349/1k) | 0 | 0 | -- | -- | Rigid single-pass error propagation (40.8% failure in candidate pool) |
-| **Ours: LLaVA-1.5-7B (Zero-Shot 4-bit)** | 34.90% (349/1k) | 0 | 0 | **+0.00% (0)** | 0.0% | Severe Option-(A) primacy bias (~96% collapse) |
+| **Ours: LLaVA-1.5-7B (Zero-Shot 4-bit)** | 34.90% (349/1k) | **1 query** | 1 query | **+0.00% (0)** | 50.0% | Severe Option-(A) primacy bias (~96% collapse; near-zero switching) |
 | **Ours: LLaVA-1.5-13B (Permissive)** | 34.20% (342/1k) | **37 queries** | 44 queries | **-0.70% (-7)** | **45.6%** | Over-switching (360/508); Pass-2 Option-A bias |
 | **Ours: LLaVA-1.5-13B (Conservative)**| 34.70% (347/1k) | **17 queries** | 19 queries | **-0.20% (-2)** | **47.2%** | Stricter gating; underlying zero-shot precision is ~47% |
 | **Ours: LLaVA-1.5-7B + LoRA Verifier (Fine-Tuned)** | **36.00% (360/1k)** | **27 queries** | **16 queries** | **+1.10% (+11)** | **62.8%** | **Symmetric PEFT eliminates positional bias (1.33% bias); net positive recovery achieved** |
