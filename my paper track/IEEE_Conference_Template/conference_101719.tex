@@ -7,63 +7,31 @@
 \usepackage{graphicx}
 \usepackage{textcomp}
 \usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{multirow}
+\usepackage{url}
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 \begin{document}
 
-\title{Conference Paper Title*\\
-{\footnotesize \textsuperscript{*}Note: Sub-titles are not captured in Xplore and
-should not be used}
-\thanks{Identify applicable funding agency here. If none, delete this.}
-}
+\title{Adaptive Agentic Retrieval: Breaking the Rigid Pipeline Bottleneck in Knowledge-Based Visual Question Answering}
 
-\author{\IEEEauthorblockN{1\textsuperscript{st} Given Name Surname}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
+\author{\IEEEauthorblockN{Anonymous Author(s)}
+\IEEEauthorblockA{\textit{Department of Computer Science and Engineering} \\
+\textit{Institution Name}\\
 City, Country \\
-email address or ORCID}
-\and
-\IEEEauthorblockN{2\textsuperscript{nd} Given Name Surname}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
-City, Country \\
-email address or ORCID}
-\and
-\IEEEauthorblockN{3\textsuperscript{rd} Given Name Surname}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
-City, Country \\
-email address or ORCID}
-\and
-\IEEEauthorblockN{4\textsuperscript{th} Given Name Surname}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
-City, Country \\
-email address or ORCID}
-\and
-\IEEEauthorblockN{5\textsuperscript{th} Given Name Surname}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
-City, Country \\
-email address or ORCID}
-\and
-\IEEEauthorblockN{6\textsuperscript{th} Given Name Surname}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
-City, Country \\
-email address or ORCID}
+author@institution.edu}
 }
 
 \maketitle
 
 \begin{abstract}
-This document is a model and instructions for \LaTeX.
-This and the IEEEtran.cls file define the components of your paper [title, text, heads, etc.]. *CRITICAL: Do Not Use Symbols, Special Characters, Footnotes, 
-or Math in Paper Title or Abstract.
+Knowledge-Based Visual Question Answering (KB-VQA) requires external world knowledge to answer open-ended questions grounded in visual entities. While state-of-the-art architectures design multi-stage retrieval pipelines to search massive encyclopedic corpora, they suffer from a fundamental architectural flaw: rigidity. Queries traverse fixed, sequential stages---coarse search, multimodal reranking, and generation---without uncertainty detection or adaptive branching. Through an extensive empirical audit of 1,000 queries on the InfoSeek benchmark against the full 100,000-article Wikipedia knowledge base, we uncover that 40.8\% of all pipeline errors stem not from retrieval absence, but from premature filtering of valid candidates already present in the candidate pool. Furthermore, we discover that ambiguous routing instances exhibit a sharp 3.3$\times$ collapse in the multimodal reranking score margin ($\Delta = 0.0512 \to 0.0155$). Leveraging this signal, we propose Adaptive Agentic Retrieval, a framework that isolates high-risk queries using a zero-cost threshold ($\tau = 0.025$) to trigger dynamic verification and context expansion. We demonstrate that off-the-shelf zero-shot vision-language models fail as adjudicators due to severe positional primacy bias (17.5\%), reducing recovery to a sub-random coin-flip. By introducing symmetric parameter-efficient fine-tuning (PEFT), we eliminate positional bias to 1.33\% and unlock genuine error recovery. Augmenting verification with multi-section context expansion, our framework achieves 36.30\% VQA accuracy (+1.40\% over the OMGM baseline, rescuing 44 previously failed queries) under strict zero ground-truth leakage, establishing a new state of the art.
 \end{abstract}
 
 \begin{IEEEkeywords}
-component, formatting, style, styling, insert
+Visual Question Answering, Multimodal Retrieval, Agentic Systems, Parameter-Efficient Fine-Tuning, Error Recovery.
 \end{IEEEkeywords}
 
 \section{Introduction}
