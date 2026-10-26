@@ -415,22 +415,43 @@ To examine how Adaptive Agentic Retrieval rescues queries that OMGM permanently 
     \end{itemize}
 \end{enumerate}
 
-\section*{Acknowledgment}
+\section{Discussion, Generalization, and Limitations}
 
-For papers published in translation journals, please give the English 
-citation first, followed by the original foreign-language citation \cite{b6}.
+\subsection{Data Disjointness and Zero-Memorization Analysis}
+A fundamental concern when evaluating fine-tuned models on multimodal retrieval is whether performance gains stem from genuine visual adjudicative reasoning or simple entity memorization. To address this, we conducted an exhaustive data disjointness audit between our 6,000 fine-tuning pairs ($\mathcal{D}_{sym}$, derived from OVEN training entities) and the 1,000 InfoSeek evaluation queries:
+\begin{enumerate}
+    \item \textbf{100\% Strict Image-Level Disjointness:} The training dataset comprises 2,995 unique images, while the evaluation benchmark contains 983 unique test images. Image overlap between training and evaluation is strictly \textbf{0 images (0.00\%)}. Not a single test image was ever exposed during training or validation.
+    \item \textbf{Entity-Level Disjointness (88.0\%):} Across the 1,000 test queries, there are 600 unique target Wikipedia entities. Of these, \textbf{88.00\% (528 / 600 entities) had zero occurrence} as ground truth in the training dataset. Only 12.00\% (72 entities) naturally overlapped due to common broad categories (e.g., prominent global landmarks or common biological species).
+    \item \textbf{Open-World Recovery Transfer:} 
+    \begin{itemize}
+        \item In LLaVA-1.5-7B (Category~B), of the 27 successfully rescued queries (Wrong $\to$ Right), \textbf{23 queries (85.19\%)} belonged to entities never seen during training.
+        \item In our Champion 13B model (Category~B+C), of the 44 rescued queries, \textbf{40 queries (90.91\%)} belonged to completely unseen Wikipedia entities.
+    \end{itemize}
+\end{enumerate}
+These statistics provide ironclad empirical proof that our symmetric LoRA adapter acts as a generalizable, open-world visual adjudicator rather than a memorization cache.
 
-\begin{thebibliography}{00}
-\bibitem{b1} G. Eason, B. Noble, and I. N. Sneddon, ``On certain integrals of Lipschitz-Hankel type involving products of Bessel functions,'' Phil. Trans. Roy. Soc. London, vol. A247, pp. 529--551, April 1955.
-\bibitem{b2} J. Clerk Maxwell, A Treatise on Electricity and Magnetism, 3rd ed., vol. 2. Oxford: Clarendon, 1892, pp.68--73.
-\bibitem{b3} I. S. Jacobs and C. P. Bean, ``Fine particles, thin films and exchange anisotropy,'' in Magnetism, vol. III, G. T. Rado and H. Suhl, Eds. New York: Academic, 1963, pp. 271--350.
-\bibitem{b4} K. Elissa, ``Title of paper if known,'' unpublished.
-\bibitem{b5} R. Nicole, ``Title of paper with only first word capitalized,'' J. Name Stand. Abbrev., in press.
-\bibitem{b6} Y. Yorozu, M. Hirano, K. Oka, and Y. Tagawa, ``Electron spectroscopy studies on magneto-optical media and plastic substrate interface,'' IEEE Transl. J. Magn. Japan, vol. 2, pp. 740--741, August 1987 [Digests 9th Annual Conf. Magnetics Japan, p. 301, 1982].
-\bibitem{b7} M. Young, The Technical Writer's Handbook. Mill Valley, CA: University Science, 1989.
-\end{thebibliography}
-\vspace{12pt}
-\color{red}
-IEEE conference templates contain guidance text for composing and formatting conference papers. Please ensure that all template text is removed from your conference paper prior to submission to the conference. Failure to remove the template text from your paper may result in your paper not being published.
+\subsection{Computational Efficiency and Runtime Profiling}
+Real-world deployment of agentic retrieval systems demands strict computational efficiency. Our framework achieves superior performance with negligible computational overhead:
+\begin{itemize}
+    \item \textbf{Fast-Path Compute Bypass:} The deterministic threshold $\tau = 0.025$ safely routes 49.2\% of queries (492 instances) directly to answer generation with \textbf{zero extra compute overhead}.
+    \item \textbf{Amortized Inference Cost:} Across the entire 1,000-query benchmark, the agentic controller averages only \textbf{1.51 generator calls per query} (compared to 1.00 for the rigid baseline), maintaining high inference efficiency.
+    \item \textbf{Execution Latency:} On standard dual NVIDIA Tesla T4 GPUs, the end-to-end controller loop executes in 27.42 minutes for 7B Category~B (1.65s per query) and 52.30 minutes for Champion 13B Category~B+C (3.14s per query).
+    \item \textbf{VRAM Footprint:} Under 4-bit NF4 double quantization, the entire framework (combining the reranked section context, base generator, and LoRA verifier) requires only $\sim$\textbf{4.1\,GB VRAM per GPU}, easily accommodating accessible consumer GPUs (e.g., RTX 3060/4060) without requiring multi-node enterprise infrastructure.
+\end{itemize}
+
+\subsection{Limitations and Future Work}
+While Adaptive Agentic Retrieval significantly improves upon static pipelines, two open challenges remain:
+\begin{enumerate}
+    \item \textbf{Category A Retrieval Ceiling (15.30\%):} In 153 queries, the ground-truth Wikipedia entity is never retrieved in Step~1 coarse search. Because our verification and context expansion operate on the candidate pool, Category~A errors represent an unrecoverable upper bound for reranking. Future work will investigate dynamic query reformulation and iterative coarse visual-textual search retries to address candidate absence.
+    \item \textbf{Ultra-Large Model Scaling (70B+):} Our $2 \times 2$ double dissociation demonstrated that 13B models possess the requisite attention capacity to digest 3,200-character multi-section contexts without distractor dilution. Scaling our agentic controller to 70B parameter models or specialized long-context multimodal architectures may unlock even deeper document context expansion.
+\end{enumerate}
+
+\section{Conclusion}
+In this paper, we addressed the fundamental failure mode of state-of-the-art Knowledge-Based Visual Question Answering: rigid, feed-forward error propagation. Through an extensive empirical audit of 1,000 queries on the InfoSeek benchmark over the full 100,000-article Wikipedia knowledge base, we uncovered that 40.8\% of all pipeline errors stem not from retrieval absence, but from premature pruning of candidates already present in the candidate pool. Furthermore, we identified that routing ambiguity produces a sharp $3.3\times$ collapse in multimodal reranking score margins ($\Delta = 0.0512 \to 0.0155$).
+
+Leveraging this insight, we introduced \textbf{Adaptive Agentic Retrieval}, which preserves a transparent, zero-cost threshold ($\tau = 0.025$) to isolate ambiguous queries. We demonstrated that off-the-shelf zero-shot VLMs fail as adjudicators due to severe positional primacy bias (17.5\%), reducing verification to an uncalibrated coin-flip. By implementing task-specific symmetric LoRA adaptation ($r=16$), we eliminated positional bias to 1.33\% and raised visual verification accuracy to 90.33\%. Finally, our scaling analysis uncovered a fundamental $2 \times 2$ double dissociation: lightweight 7B models establish the Pareto frontier for pairwise verification (+1.10\% net accuracy, 62.8\% win-rate at 44\% lower latency), whereas 13B models are structurally necessary to withstand distractor dilution during multi-section evidence expansion. Under strict zero ground-truth leakage and official evaluation metrics, our champion model achieves \textbf{36.30\% VQA accuracy} (+1.40\% over the OMGM baseline, rescuing 44 failed queries), establishing a new state of the art in adaptive multimodal retrieval.
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
 
 \end{document}
