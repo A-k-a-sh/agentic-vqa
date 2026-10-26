@@ -57,144 +57,53 @@ The primary contributions of this paper are summarized as follows:
     \item \textbf{Zero-Leakage Benchmark Superiority:} Evaluated on the 1,000 InfoSeek test queries with strict zero ground-truth leakage and official metrics, our champion model achieves 36.30\% VQA accuracy (+1.40\% over the OMGM baseline, rescuing 44 failed queries), establishing a new state of the art in adaptive multimodal retrieval.
 \end{itemize}
 
-\subsection{Maintaining the Integrity of the Specifications}
+\section{Related Work}
 
-The IEEEtran class file is used to format your paper and style the text. All margins, 
-column widths, line spaces, and text fonts are prescribed; please do not 
-alter them. You may note peculiarities. For example, the head margin
-measures proportionately more than is customary. This measurement 
-and others are deliberate, using specifications that anticipate your paper 
-as one part of the entire proceedings, and not as an independent document. 
-Please do not revise any of the current designations.
+\subsection{Knowledge-Based Visual Question Answering}
+Visual Question Answering (VQA) has matured from perceptual scene interpretation~\cite{vqa_v2} to Knowledge-Based VQA (KB-VQA)~\cite{okvqa, aokvqa}, where models must access open-world external knowledge bases to answer entity-centric questions. Benchmark datasets such as OVEN~\cite{oven} and InfoSeek~\cite{infoseek} expanded this paradigm to entity linking across millions of Wikipedia articles. To bridge visual queries with vast unstructured corpora, recent state-of-the-art frameworks employ multi-stage retrieval pipelines. Most notably, the OMGM framework~\cite{omgm2025} orchestrates multiple granularities and modalities: first executing coarse candidate search via CLIP visual embeddings~\cite{clip} against an encyclopedic FAISS index, followed by fine-grained multimodal reranking using BLIP-2 Q-Former cross-attention~\cite{blip2}, and finally section reranking via BGE-reranker-v2-m3~\cite{bge_reranker} combined with LLaVA answer generation~\cite{llava15}. However, all such multi-stage pipelines enforce rigid, unidirectional execution: top candidates are passed downstream irrevocably, causing early ranking misclassifications to cascade into permanent answer failures without mechanisms for uncertainty detection or verification.
 
-\section{Prepare Your Paper Before Styling}
-Before you begin to format your paper, first write and save the content as a 
-separate text file. Complete all content and organizational editing before 
-formatting. Please note sections \ref{AA}--\ref{SCM} below for more information on 
-proofreading, spelling and grammar.
+\subsection{Agentic, Adaptive, and Self-Reflective Retrieval}
+In natural language processing, Retrieval-Augmented Generation (RAG) has increasingly embraced adaptive and agentic paradigms to overcome the limitations of static single-pass retrieval. Architectures such as Self-RAG~\cite{selfrag}, Corrective RAG (CRAG)~\cite{crag}, and Adaptive-RAG~\cite{adaptiverag} dynamically gauge retrieval necessity, verify retrieved documents, and formulate iterative search queries. Similarly, generalist agent frameworks like ReAct~\cite{react} and Toolformer~\cite{toolformer} empower language models to interleave reasoning with tool execution. Extending agentic retrieval to multimodal settings has primarily relied on black-box LLM planners or open-ended multi-turn dialog agents. While expressive, relying on general-purpose LLM routers introduces severe latency overhead, high operational costs, and unpredictable routing behaviors. In contrast, our approach preserves a deterministic, zero-cost mathematical threshold ($\tau = 0.025$) on intrinsic multimodal reranking margins, activating targeted visual verification tools only when uncertainty is mathematically detected.
 
-Keep your text and graphic files separate until after the text has been 
-formatted and styled. Do not number text heads---{\LaTeX} will do that 
-for you.
+\subsection{VLM Calibration, Positional Primacy Bias, and PEFT}
+Large Vision-Language Models (VLMs) have demonstrated impressive multimodal comprehension across diverse zero-shot tasks~\cite{llava15, blip2}. Nonetheless, recent studies have demonstrated that foundation VLMs suffer from acute calibration flaws, hallucination, and severe order-sensitivity biases~\cite{primacy_bias, peiss_order_bias}. In comparative pairwise evaluation (e.g., adjudicating between Candidate A and Candidate B), zero-shot VLMs exhibit pronounced \textit{positional primacy bias}, disproportionately favoring the first-presented option regardless of visual alignment. When deployed as zero-shot verification agents, this bias leads to catastrophic decision failure. To address these vulnerabilities without costly full-parameter retraining, Parameter-Efficient Fine-Tuning (PEFT), particularly Low-Rank Adaptation (LoRA)~\cite{lora} and QLoRA~\cite{qlora}, offers a mechanism to calibrate specific model behaviors. We demonstrate that task-specific symmetric PEFT adaptation on balanced pairwise permutations is structurally essential to neutralize positional primacy bias and convert off-the-shelf VLMs into reliable visual adjudicators.
 
-\subsection{Abbreviations and Acronyms}\label{AA}
-Define abbreviations and acronyms the first time they are used in the text, 
-even after they have been defined in the abstract. Abbreviations such as 
-IEEE, SI, MKS, CGS, ac, dc, and rms do not have to be defined. Do not use 
-abbreviations in the title or heads unless they are unavoidable.
+\section{Empirical Motivation \& Failure Taxonomy}
 
-\subsection{Units}
+\subsection{Reproduction of Multi-Stage KB-VQA Baselines}
+To identify where state-of-the-art KB-VQA architectures fail, we reproduced the complete OMGM pipeline~\cite{omgm2025} under standardized conditions. Our evaluation was conducted on a representative test split of 1,000 queries from the InfoSeek benchmark~\cite{infoseek}, keeping the full 100,000-article Wikipedia knowledge base completely unpruned to preserve realistic retrieval complexity. The pipeline comprises:
+\begin{enumerate}
+    \item \textbf{Step 1 (Coarse Search):} Query image embeddings generated by CLIP (ViT-B/32) query a FAISS index of 100,000 Wikipedia entity summaries, retrieving the top-20 candidate entities.
+    \item \textbf{Step 2 (Fine-Grained Multimodal Reranking):} Top-20 candidates are reranked via a pretrained Q-Former IT2IT model~\cite{blip2, omgm2025} that fuses cross-attention over query images, candidate Wikipedia entity images, and section texts, producing blended multimodal scores with $\alpha = 0.9$.
+    \item \textbf{Step 3 (Section Reranking and VQA Generation):} Candidate sections from the top-1 entity are scored using BAAI/BGE-reranker-v2-m3~\cite{bge_reranker} fused with Step 2 section similarities ($\beta = 0.2$). The top-ranked section is provided as context to LLaVA-1.5-7B~\cite{llava15} for greedy zero-shot answer generation.
+\end{enumerate}
+Using the official OMGM evaluation protocol (multi-alias string matching with $\pm 10\%$ numerical tolerance), the baseline achieves an end-to-end VQA accuracy of \textbf{34.90\%} (349 / 1,000 queries), faithfully matching the published OMGM performance characteristics.
+
+\subsection{Phase 0 Evidence-First Failure Taxonomy}
+We executed an exhaustive failure audit across all 1,000 test queries, tracing the lineage of ground-truth entities and factual evidence across every stage of the pipeline. The resulting taxonomy classifies every query into one of four mutually exclusive categories:
 \begin{itemize}
-\item Use either SI (MKS) or CGS as primary units. (SI units are encouraged.) English units may be used as secondary units (in parentheses). An exception would be the use of English units as identifiers in trade, such as ``3.5-inch disk drive''.
-\item Avoid combining SI and CGS units, such as current in amperes and magnetic field in oersteds. This often leads to confusion because equations do not balance dimensionally. If you must use mixed units, clearly state the units for each quantity that you use in an equation.
-\item Do not mix complete spellings and abbreviations of units: ``Wb/m\textsuperscript{2}'' or ``webers per square meter'', not ``webers/m\textsuperscript{2}''. Spell out units when they appear in text: ``. . . a few henries'', not ``. . . a few H''.
-\item Use a zero before decimal points: ``0.25'', not ``.25''. Use ``cm\textsuperscript{3}'', not ``cc''.)
+    \item \textbf{Baseline Success (34.90\%, 349 queries):} The correct entity and relevant evidence section were selected, and the generator produced the correct factual answer.
+    \item \textbf{Category A: Retrieval Ceiling Error (15.30\%, 153 queries):} The ground-truth Wikipedia entity was not present within the top-20 candidates retrieved by Step~1 coarse search. In these instances, external knowledge is completely absent from the candidate pool.
+    \item \textbf{Category B: Entity Reranking Error (20.50\%, 205 queries):} The correct Wikipedia entity was successfully retrieved in the top-20 candidate pool by Step~1, but Step~2 multimodal reranking ranked it at position $> 1$, forwarding an incorrect entity to the generator.
+    \item \textbf{Category C: Section Selection Error (20.30\%, 203 queries):} The correct entity was successfully ranked at top-1 by Step~2, but the section selection mechanism in Step~3 chose a section that omitted the requisite factual evidence (e.g., selecting the general lead section rather than specific dimension or biographical tables).
+    \item \textbf{Category D: Generator Reasoning Error (13.70\%, 137 queries):} Both the correct entity and the correct evidence-bearing section were provided to the generator, but the model hallucinated or failed to parse the text correctly.
 \end{itemize}
 
-\subsection{Equations}
-Number equations consecutively. To make your 
-equations more compact, you may use the solidus (~/~), the exp function, or 
-appropriate exponents. Italicize Roman symbols for quantities and variables, 
-but not Greek symbols. Use a long dash rather than a hyphen for a minus 
-sign. Punctuate equations with commas or periods when they are part of a 
-sentence, as in:
-\begin{equation}
-a+b=\gamma\label{eq}
-\end{equation}
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{figs/fig1_failure_taxonomy_and_score_margin.pdf}
+\caption{Empirical failure taxonomy and score margin distributions across 1,000 InfoSeek test queries evaluated against the full 100k Wikipedia knowledge base. (a) Proportions of pipeline outcomes: 40.8\% of all queries (Category B: 20.5\% + Category C: 20.3\%) suffer from the rigid ranking bottleneck, where ground-truth knowledge is successfully retrieved in the candidate pool but prematurely discarded. (b) Kernel density distribution of the multimodal score margin $\Delta = S_1 - S_2$, illustrating a sharp $3.3\times$ collapse during Category B errors ($\Delta_{avg} = 0.0155$) compared to successful queries ($\Delta_{avg} = 0.0512$). This empirical gap motivates the zero-cost threshold $\tau = 0.025$ to isolate ambiguous queries for agentic verification.}
+\label{fig:failure_taxonomy}
+\end{figure*}
 
-Be sure that the 
-symbols in your equation have been defined before or immediately following 
-the equation. Use ``\eqref{eq}'', not ``Eq.~\eqref{eq}'' or ``equation \eqref{eq}'', except at 
-the beginning of a sentence: ``Equation \eqref{eq} is . . .''
+\subsection{Key Scientific Insights and Observations}
+The empirical taxonomy displayed in Fig.~\ref{fig:failure_taxonomy} reveals critical findings that challenge traditional assumptions in multimodal retrieval:
 
-\subsection{\LaTeX-Specific Advice}
+\textbf{1. The Rigid Ranking Bottleneck (Category B + C = 40.8\%):} In 408 out of 1,000 queries, the pipeline already had the required Wikipedia entity or knowledge within its grasp. However, the rigid feed-forward architecture irreversibly pruned valid candidates at either the entity level (205 queries) or section level (203 queries). This proves that premature filtering, rather than retrieval absence, is the primary performance bottleneck in state-of-the-art KB-VQA.
 
-Please use ``soft'' (e.g., \verb|\eqref{Eq}|) cross references instead
-of ``hard'' references (e.g., \verb|(1)|). That will make it possible
-to combine sections, add equations, or change the order of figures or
-citations without having to go through the file line by line.
+\textbf{2. Generator Reasoning is Not the Primary Bottleneck:} Category~D errors account for only 13.70\% of queries. When provided with the correct entity and evidence-bearing section, LLaVA-1.5-7B succeeds \textbf{64.7\%} of the time (251 correct out of 388 instances with perfect context). This indicates that scaling generation models to massive 70B parameter models is largely unnecessary if retrieval routing can be dynamically corrected.
 
-Please don't use the \verb|{eqnarray}| equation environment. Use
-\verb|{align}| or \verb|{IEEEeqnarray}| instead. The \verb|{eqnarray}|
-environment leaves unsightly spaces around relation symbols.
-
-Please note that the \verb|{subequations}| environment in {\LaTeX}
-will increment the main equation counter even when there are no
-equation numbers displayed. If you forget that, you might write an
-article in which the equation numbers skip from (17) to (20), causing
-the copy editors to wonder if you've discovered a new method of
-counting.
-
-{\BibTeX} does not work by magic. It doesn't get the bibliographic
-data from thin air but from .bib files. If you use {\BibTeX} to produce a
-bibliography you must send the .bib files. 
-
-{\LaTeX} can't read your mind. If you assign the same label to a
-subsubsection and a table, you might find that Table I has been cross
-referenced as Table IV-B3. 
-
-{\LaTeX} does not have precognitive abilities. If you put a
-\verb|\label| command before the command that updates the counter it's
-supposed to be using, the label will pick up the last counter to be
-cross referenced instead. In particular, a \verb|\label| command
-should not go before the caption of a figure or a table.
-
-Do not use \verb|\nonumber| inside the \verb|{array}| environment. It
-will not stop equation numbers inside \verb|{array}| (there won't be
-any anyway) and it might stop a wanted equation number in the
-surrounding equation.
-
-\subsection{Some Common Mistakes}\label{SCM}
-\begin{itemize}
-\item The word ``data'' is plural, not singular.
-\item The subscript for the permeability of vacuum $\mu_{0}$, and other common scientific constants, is zero with subscript formatting, not a lowercase letter ``o''.
-\item In American English, commas, semicolons, periods, question and exclamation marks are located within quotation marks only when a complete thought or name is cited, such as a title or full quotation. When quotation marks are used, instead of a bold or italic typeface, to highlight a word or phrase, punctuation should appear outside of the quotation marks. A parenthetical phrase or statement at the end of a sentence is punctuated outside of the closing parenthesis (like this). (A parenthetical sentence is punctuated within the parentheses.)
-\item A graph within a graph is an ``inset'', not an ``insert''. The word alternatively is preferred to the word ``alternately'' (unless you really mean something that alternates).
-\item Do not use the word ``essentially'' to mean ``approximately'' or ``effectively''.
-\item In your paper title, if the words ``that uses'' can accurately replace the word ``using'', capitalize the ``u''; if not, keep using lower-cased.
-\item Be aware of the different meanings of the homophones ``affect'' and ``effect'', ``complement'' and ``compliment'', ``discreet'' and ``discrete'', ``principal'' and ``principle''.
-\item Do not confuse ``imply'' and ``infer''.
-\item The prefix ``non'' is not a word; it should be joined to the word it modifies, usually without a hyphen.
-\item There is no period after the ``et'' in the Latin abbreviation ``et al.''.
-\item The abbreviation ``i.e.'' means ``that is'', and the abbreviation ``e.g.'' means ``for example''.
-\end{itemize}
-An excellent style manual for science writers is \cite{b7}.
-
-\subsection{Authors and Affiliations}
-\textbf{The class file is designed for, but not limited to, six authors.} A 
-minimum of one author is required for all conference articles. Author names 
-should be listed starting from left to right and then moving down to the 
-next line. This is the author sequence that will be used in future citations 
-and by indexing services. Names should not be listed in columns nor group by 
-affiliation. Please keep your affiliations as succinct as possible (for 
-example, do not differentiate among departments of the same organization).
-
-\subsection{Identify the Headings}
-Headings, or heads, are organizational devices that guide the reader through 
-your paper. There are two types: component heads and text heads.
-
-Component heads identify the different components of your paper and are not 
-topically subordinate to each other. Examples include Acknowledgments and 
-References and, for these, the correct style to use is ``Heading 5''. Use 
-``figure caption'' for your Figure captions, and ``table head'' for your 
-table title. Run-in heads, such as ``Abstract'', will require you to apply a 
-style (in this case, italic) in addition to the style provided by the drop 
-down menu to differentiate the head from the text.
-
-Text heads organize the topics on a relational, hierarchical basis. For 
-example, the paper title is the primary text head because all subsequent 
-material relates and elaborates on this one topic. If there are two or more 
-sub-topics, the next level head (uppercase Roman numerals) should be used 
-and, conversely, if there are not at least two sub-topics, then no subheads 
-should be introduced.
-
-\subsection{Figures and Tables}
-\paragraph{Positioning Figures and Tables} Place figures and tables at the top and 
-bottom of columns. Avoid placing them in the middle of columns. Large 
-figures and tables may span across both columns. Figure captions should be 
-below the figures; table heads should appear above the tables. Insert 
-figures and tables after they are cited in the text. Use the abbreviation 
-``Fig.~\ref{fig}'', even at the beginning of a sentence.
+\textbf{3. The $3.3\times$ Score Margin Signal ($\Delta = S_1 - S_2$):} When comparing the top-two multimodal reranking scores ($S_1$ and $S_2$), we observe a profound divergence in confidence margins, plotted in Fig.~\ref{fig:failure_taxonomy}(b). When the top-1 entity is correct, the score margin is wide: $\Delta_{avg} = 0.0512$. When a Category~B reranking failure occurs, the margin collapses to $\Delta_{avg} = 0.0155$---a \textbf{$3.3\times$ drop}. This provides an intrinsic, zero-cost mathematical indicator: queries with $\Delta < \tau = 0.025$ are disproportionately error-prone (exhibiting a baseline accuracy of only 25.39\%, compared to 44.72\% for queries with $\Delta \ge 0.025$). Consequently, $\tau = 0.025$ serves as an ideal gating threshold to trigger adaptive verification.
 
 \begin{table}[htbp]
 \caption{Table Type Styles}
