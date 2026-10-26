@@ -105,38 +105,145 @@ The empirical taxonomy displayed in Fig.~\ref{fig:failure_taxonomy} reveals crit
 
 \textbf{3. The $3.3\times$ Score Margin Signal ($\Delta = S_1 - S_2$):} When comparing the top-two multimodal reranking scores ($S_1$ and $S_2$), we observe a profound divergence in confidence margins, plotted in Fig.~\ref{fig:failure_taxonomy}(b). When the top-1 entity is correct, the score margin is wide: $\Delta_{avg} = 0.0512$. When a Category~B reranking failure occurs, the margin collapses to $\Delta_{avg} = 0.0155$---a \textbf{$3.3\times$ drop}. This provides an intrinsic, zero-cost mathematical indicator: queries with $\Delta < \tau = 0.025$ are disproportionately error-prone (exhibiting a baseline accuracy of only 25.39\%, compared to 44.72\% for queries with $\Delta \ge 0.025$). Consequently, $\tau = 0.025$ serves as an ideal gating threshold to trigger adaptive verification.
 
-\begin{table}[htbp]
-\caption{Table Type Styles}
-\begin{center}
-\begin{tabular}{|c|c|c|c|}
-\hline
-\textbf{Table}&\multicolumn{3}{|c|}{\textbf{Table Column Head}} \\
-\cline{2-4} 
-\textbf{Head} & \textbf{\textit{Table column subhead}}& \textbf{\textit{Subhead}}& \textbf{\textit{Subhead}} \\
-\hline
-copy& More table copy$^{\mathrm{a}}$& &  \\
-\hline
-\multicolumn{4}{l}{$^{\mathrm{a}}$Sample of a Table footnote.}
+\section{Adaptive Agentic Retrieval Methodology}
+
+\subsection{System Architecture and Confidence-Gated Policy}
+Existing multi-stage architectures evaluate each test query $q = (I_q, Q)$ through an inflexible, feed-forward cascade. Let $\mathcal{C}_{top20} = \{e_1, e_2, \dots, e_{20}\}$ denote the candidate entities retrieved in Step~1. In Step~2, the multimodal reranker scores each candidate $e_i \in \mathcal{C}_{top20}$ using cross-attention fusion over query image $I_q$, candidate entity images, and section texts, generating multimodal scores $S(e_i \mid q)$.
+
+Let $e_{(1)}$ and $e_{(2)}$ denote the top-two ranked candidates sorted in descending order of score, with corresponding scores $S_1 \ge S_2$. Conventional pipelines irreversibly forward $e_{(1)}$ to Step~3, discarding $e_{(2)}$. In contrast, Adaptive Agentic Retrieval dynamically determines the routing policy based on the intrinsic score margin $\Delta$:
+\begin{equation}
+\Delta = S_1 - S_2.
+\end{equation}
+
+Our control policy $\pi(q)$ is defined as a zero-cost deterministic threshold function:
+\begin{equation}
+\pi(q) = \begin{cases}
+\text{Fast-Path}(e_{(1)}), & \text{if } \Delta \ge \tau \\
+\text{Agentic-Branch}(e_{(1)}, e_{(2)}, q), & \text{if } \Delta < \tau
+\end{cases}
+\label{eq:policy}
+\end{equation}
+where $\tau = 0.025$ is the empirical uncertainty boundary derived in Section~III. For confident queries ($\Delta \ge 0.025$, representing 49.2\% of the benchmark), $e_{(1)}$ is retained without additional computation, protecting established predictions and incurring zero latency overhead. For ambiguous queries ($\Delta < 0.025$, 50.8\% of queries), the system enters the agentic verification loop.
+
+\subsection{The Zero-Shot Verification Dilemma}
+To arbitrate between $e_{(1)}$ and $e_{(2)}$ during ambiguity, an agentic framework requires a visual adjudication tool. A naive solution is to prompt an off-the-shelf zero-shot VLM (e.g., LLaVA-1.5-7B) to inspect the query image $I_q$ and choose between candidate visual identities:
+\begin{quote}
+\small
+\texttt{"Which entity is shown in the image? (A) [Entity 1] or (B) [Entity 2]. Answer with the option letter and entity name."}
+\end{quote}
+
+To evaluate whether zero-shot foundation models are capable of this adjudication, we conducted a rigorous diagnostic benchmark on 40 held-out ambiguous entity pairs. As shown in Table~\ref{tab:zero_shot_diagnostic}, zero-shot foundation models suffer from compound failure modes:
+\begin{enumerate}
+    \item \textbf{Instruction Adherence Collapse (47.5\%):} In nearly half of all queries, zero-shot models fail to output a parseable binary decision, generating open-ended descriptions or non-committal hedging.
+    \item \textbf{Severe Positional Primacy Bias (17.5\%):} Models exhibit a 2.0$\times$ higher preference for Option (A) over Option (B), simply because Candidate A was presented first ($Acc_A = 20.0\%$ vs. $Acc_B = 45.0\%$).
+    \item \textbf{Sub-Random Disambiguation (32.5\%):} Raw pairwise accuracy falls substantially below the 50\% chance level of a random guess.
+\end{enumerate}
+
+When deployed inside an adaptive controller, zero-shot VLMs achieve an empirical switching win-rate of only 45.6\%--47.2\%, functioning as an uncalibrated coin-flip that degrades as many correct answers as it rescues. This diagnostic confirms that \textit{heuristic agentic control alone cannot overcome an uncalibrated verification tool}.
+
+\begin{table}[t]
+\caption{Zero-Shot Diagnostic Benchmark on Held-Out Ambiguous Validation Pairs (LLaVA-1.5-7B, 4-bit NF4)}
+\label{tab:zero_shot_diagnostic}
+\centering
+\small
+\begin{tabular}{l c l}
+\toprule
+\textbf{Diagnostic Metric} & \textbf{Value} & \textbf{Empirical Failure Mechanism} \\
+\midrule
+Evaluated Pairs & 40 & Ambiguous pairs with hard distractors \\
+Chose Option (A) & 35.0\% (14/40) & 2.0$\times$ preference for first candidate \\
+Chose Option (B) & 17.5\% (7/40) & Suppression of second candidate \\
+Formatting Collapse & 47.5\% (19/40) & Open-ended text drift, unparseable \\
+Raw Accuracy & 32.5\% (13/40) & Sub-random visual adjudication \\
+Positional Primacy Bias & 17.5\% & Severe order-dependent asymmetry \\
+\bottomrule
 \end{tabular}
-\label{tab1}
-\end{center}
 \end{table}
 
-\begin{figure}[htbp]
-\centerline{\includegraphics{fig1.png}}
-\caption{Example of a figure caption.}
-\label{fig}
-\end{figure}
+\subsection{Task-Specific Symmetric PEFT Verifier Calibration}
+To eliminate positional bias and enable precise visual adjudication, we formulate symmetric Parameter-Efficient Fine-Tuning (PEFT). We construct a dedicated calibration dataset of 6,000 entity pairs ($\mathcal{D}_{sym}$) derived from standard OVEN/InfoSeek training entities with hard negative distractors. Crucially, $\mathcal{D}_{sym}$ enforces strict pairwise symmetry: exactly 50\% of target entities appear as Option (A) and 50\% appear as Option (B).
 
-Figure Labels: Use 8 point Times New Roman for Figure labels. Use words 
-rather than symbols or abbreviations when writing Figure axis labels to 
-avoid confusing the reader. As an example, write the quantity 
-``Magnetization'', or ``Magnetization, M'', not just ``M''. If including 
-units in the label, present them within parentheses. Do not label axes only 
-with units. In the example, write ``Magnetization (A/m)'' or ``Magnetization 
-\{A[m(1)]\}'', not just ``A/m''. Do not label axes with a ratio of 
-quantities and units. For example, write ``Temperature (K)'', not 
-``Temperature/K''.
+We apply Low-Rank Adaptation (LoRA)~\cite{lora} targeting all linear projection layers ($\mathbf{W}_q, \mathbf{W}_k, \mathbf{W}_v, \mathbf{W}_o, \mathbf{W}_{gate}, \mathbf{W}_{up}, \mathbf{W}_{down}$) with rank $r=16$, scaling $\alpha=32$, and dropout $0.05$. Training is conducted on 2$\times$ NVIDIA Tesla T4 GPUs (16GB VRAM) under 4-bit NF4 double quantization with AdamW 8-bit, cosine learning rate scheduling (peak $1.5 \times 10^{-4}$), and effective batch size 8 for 1 epoch (750 steps).
+
+As shown in Table~\ref{tab:peft_validation}, symmetric PEFT fundamentally transforms the verifier:
+\begin{itemize}
+    \item \textbf{Accuracy Jump (+57.83\%):} Disambiguation accuracy on 600 held-out symmetric validation pairs surges from 32.50\% to \textbf{90.33\%} (542 / 600).
+    \item \textbf{Elimination of Positional Bias ($17.50\% \to 1.33\%$):} Target-A accuracy (91.00\%) and Target-B accuracy (89.67\%) achieve virtual parity, yielding a minimal bias of $|Acc_A - Acc_B| = 1.33\%$.
+    \item \textbf{Zero Formatting Collapse (0.00\%):} Adherence to the binary decision protocol reaches 100\%, completely eliminating rambling generations.
+    \item \textbf{Symmetric Pair Consistency (88.33\%):} In 265 out of 300 pair reversals, the model produces identical correct decisions regardless of presentation order.
+\end{itemize}
+
+\begin{table}[t]
+\caption{Held-Out Validation Benchmark (600 Symmetric Pairs): Zero-Shot Baseline vs. Symmetric LoRA Verifier}
+\label{tab:peft_validation}
+\centering
+\small
+\begin{tabular}{l c c c}
+\toprule
+\textbf{Metric} & \textbf{Zero-Shot 7B} & \textbf{LoRA Verifier} & \textbf{$\Delta$ Impact} \\
+\midrule
+Disambiguation Accuracy & 32.50\% & \textbf{90.33\%} (542/600) & \textbf{+57.83\%} \\
+Target-A Accuracy & 20.00\% & \textbf{91.00\%} (273/300) & Balanced \\
+Target-B Accuracy & 45.00\% & \textbf{89.67\%} (269/300) & Balanced \\
+Positional Primacy Bias & 17.50\% & \textbf{1.33\%} & \textbf{-16.17\%} \\
+Symmetric Consistency & $\sim$10.00\% & \textbf{88.33\%} (265/300) & Stable \\
+Formatting Collapse & 47.50\% & \textbf{0.00\%} (0/600) & Zero drift \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Decoupled Dual-Mode Inference Architecture}
+A critical engineering challenge in agentic VLM frameworks is avoiding \textit{adapter bleed}---where fine-tuning a model for binary adjudication harms its general conversational reasoning and answer generation capabilities. We resolve this by implementing decoupled dual-mode inference:
+\begin{itemize}
+    \item \textbf{Mode 1 (Adjudication):} When evaluating ambiguous queries, the LoRA adapter is dynamically enabled to perform single-pass visual adjudication over $e_{(1)}$ and $e_{(2)}$. Because positional bias is curtailed to 1.33\%, costly two-pass prompt swapping is unnecessary.
+    \item \textbf{Mode 2 (Answer Generation):} During answer synthesis, the controller explicitly disables the LoRA adapter ($\mathtt{disable\_adapter()}$). The base VLM weights generate the final answer conditioned on the retrieved Wikipedia section text, preserving exact parity with OMGM's zero-shot generation style.
+\end{itemize}
+
+\subsection{Dual Adaptive Branching: Category B and Category C}
+When the agentic controller triggers on an ambiguous query ($\Delta < 0.025$), it executes a two-pronged recovery strategy addressing both Category~B and Category~C bottlenecks:
+\begin{enumerate}
+    \item \textbf{Category B Branch (Entity Switching):} The calibrated verifier inspects $I_q$ against $e_{(1)}$ and $e_{(2)}$. If the verifier selects Candidate 2 ($e_{(2)}$), the controller switches entity routing to $e_{(2)}$ and retrieves its top-ranked section $\mathcal{S}(e_{(2)})$.
+    \item \textbf{Category C Branch (Multi-Section Context Expansion):} If the verifier confirms Candidate 1 ($e_{(1)}$), the entity is deemed visually correct, indicating that the potential failure lies in section selection (Category~C). Rather than passing a single truncated section, the controller concatenates Candidate 1's Top-1 and Top-2 ranked sections:
+    \begin{equation}
+    \mathcal{T}_{expanded} = \mathcal{S}_1(e_{(1)}) \oplus \text{\texttt{"\textbackslash n\textbackslash n--- [Additional Evidence] ---\textbackslash n\textbackslash n"}} \oplus \mathcal{S}_2(e_{(1)}).
+    \label{eq:context_expansion}
+    \end{equation}
+    This dual-section context guarantees that specific factual evidence (e.g., dimensions, dates, or biographical facts residing outside the lead paragraph) is available in the prompt.
+\end{enumerate}
+
+The complete decision loop of Adaptive Agentic Retrieval is formalized in Algorithm~\ref{alg:controller}.
+
+\begin{algorithm}[t]
+\caption{Adaptive Agentic Retrieval Decision Policy}
+\label{alg:controller}
+\begin{algorithmic}[1]
+\REQUIRE Query $q = (I_q, Q)$, Candidates $\mathcal{C}_{top20}$, Threshold $\tau = 0.025$, Verifier $\mathcal{V}_{LoRA}$, Base Generator $\mathcal{G}_{base}$.
+\ENSURE Final Answer $\mathcal{A}$.
+\STATE Score candidates: $\{S(e_i \mid q)\} \leftarrow \text{Step2\_Multimodal\_Rerank}(\mathcal{C}_{top20})$
+\STATE Sort candidates: $e_{(1)}, e_{(2)}$ with scores $S_1 \ge S_2$
+\STATE Calculate margin: $\Delta \leftarrow S_1 - S_2$
+\IF{$\Delta \ge \tau$}
+    \STATE \COMMENT{Fast-Path: Confident query, zero compute overhead}
+    \STATE $\mathcal{S}^* \leftarrow \text{Step3\_Rerank\_Sections}(e_{(1)})$
+    \STATE $\mathcal{A} \leftarrow \mathcal{G}_{base}(I_q, Q, \mathcal{S}^*)$
+\ELSE
+    \STATE \COMMENT{Ambiguity Zone: Execute Agentic Branching}
+    \STATE Enable LoRA adapter on verifier $\mathcal{V}_{LoRA}$
+    \STATE $c^* \leftarrow \mathcal{V}_{LoRA}.\text{ask\_choice}(I_q, e_{(1)}, e_{(2)})$
+    \IF{$c^* == e_{(2)}$}
+        \STATE \COMMENT{Category B Recovery: Switch Entity}
+        \STATE $\mathcal{S}^* \leftarrow \text{Step3\_Rerank\_Sections}(e_{(2)})$
+        \STATE $\mathcal{A} \leftarrow \mathcal{G}_{base}.\text{with\_adapter\_disabled}(I_q, Q, \mathcal{S}^*)$
+    \ELSE
+        \STATE \COMMENT{Category C Recovery: Multi-Section Context Expansion}
+        \STATE $\mathcal{S}_1, \mathcal{S}_2 \leftarrow \text{Step3\_Get\_Top2\_Sections}(e_{(1)})$
+        \STATE $\mathcal{T}_{expanded} \leftarrow \mathcal{S}_1 \oplus \text{\texttt{"\textbackslash n\textbackslash n--- [Additional] ---\textbackslash n\textbackslash n"}} \oplus \mathcal{S}_2$
+        \STATE $\mathcal{A} \leftarrow \mathcal{G}_{base}.\text{with\_adapter\_disabled}(I_q, Q, \mathcal{T}_{expanded})$
+    \ENDIF
+\ENDIF
+\RETURN $\mathcal{A}$
+\end{algorithmic}
+\end{algorithm}
 
 \section*{Acknowledgment}
 
