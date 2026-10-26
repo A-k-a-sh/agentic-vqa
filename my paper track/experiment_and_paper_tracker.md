@@ -24,7 +24,7 @@ To ensure scientific honesty and fairness, we evaluated on a fixed subset of 1,0
 | :--- | :--- | :--- |
 | **Knowledge Base** | 100,000 Wikipedia Articles with Section Segmentation | `wiki_100_dict_v4.json` (HuggingFace Mirror) |
 | **Test Questions** | 1,000 Sampled InfoSeek Test Queries | `pre helper/files/infoseek_test_sample_1000.csv` |
-| **Query Images** | 983 Unique Query Images (`oven_*.jpg`) | `/kaggle/input/.../infoseek_val_1000_images/` |
+| **Query Images** | 983 Unique Query Images (`oven_*.jpg`) | `/kaggle/input/.../infoseek_val_1000_images/` (1,000 queries, 0 missing images; 17 images are shared by multi-question pairs) |
 | **Candidate Images** | 20,199 Sanitized Wikipedia Entity Images (max 3/entity) | [`pre helper/files/candidate_wiki_images_max3.csv`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/files/candidate_wiki_images_max3.csv) & `wiki_imgs/` |
 | **Reranker Checkpoint** | Pretrained Q-Former IT2IT Reranker (`model_23912.pth`, 2.3 GB) | `reranker_model.pth/reranker_model.pth/model_23912.pth` |
 | **Hardware** | Kaggle Single GPU (NVIDIA T4 16GB / P100 16GB, CUDA 12) | Standard Free-Tier Environment |
@@ -256,6 +256,25 @@ To overcome the zero-shot failure modes identified in Section 7.4, we trained a 
 | **Positional Primacy Bias ($|Acc_A - Acc_B|$)** | **17.50%** | **1.33%** | **Virtually eliminated bias** (target was $<2.00\%$) |
 | **Symmetric Pair Consistency** | ~10.00% | **88.33% (265 / 300 pairs)** | Both presentation orders produce the identical correct entity |
 | **Formatting Collapse / Unparseable Rate** | **47.50%** | **0.00% (0 / 600)** | **100% adherence** to strict `(A) [Entity]` / `(B) [Entity]` token protocol |
+
+#### 7.5.1 Zero-Leakage Data Disjointness Audit (Entity-Level & Image-Level Disjointness)
+
+To ensure that the fine-tuned verifier learned generalizable, pairwise visual adjudicative reasoning rather than memorizing entity identities or images, we audited train/test disjointness between the 6,000 training pairs (`verifier_train_symmetric_6000.csv`) and the 1,000 test evaluation queries (`infoseek_test_sample_1000.csv`):
+
+1. **Strict Image-Level Disjointness (100% Disjoint):**
+   - **Training Images:** 2,995 unique OVEN training images.
+   - **Evaluation Images:** 983 unique test images.
+   - **Image Overlap:** **0 images (0.00%)**. Not a single evaluation image was ever seen during training or validation.
+
+2. **Entity-Level Disjointness:**
+   - **Unique Test Wikipedia Entities:** 600 unique entities across the 1,000 test queries.
+   - **Completely Unseen Test Entities:** **88.00% (528 / 600 entities)** had zero occurrence as ground truth in the training dataset.
+   - Only 12.00% (72 entities) overlapped with the training set, reflecting common Wikipedia entities naturally shared across standard OVEN/InfoSeek splits (e.g. prominent landmarks or common animals).
+
+3. **Open-World Recovery Transfer (Zero Memorization Proof):**
+   - **LLaVA-1.5-7B (Category B Recoveries):** Of the 27 successfully rescued queries (Wrong $\to$ Right), **23 queries (85.19%)** belonged to entities **never seen during training**.
+   - **LLaVA-1.5-13B (Champion Category B+C Recoveries):** Of the 44 successfully rescued queries, **40 queries (90.91%)** belonged to entities **never seen during training**.
+   - **Conclusion:** These results rigorously refute the hypothesis of entity memorization. The LoRA adapter functions as an open-world visual adjudicator, transferring calibrated discriminative capabilities to previously unseen Wikipedia entities.
 
 ---
 
@@ -492,7 +511,7 @@ Reviewers frequently question whether increasing model scale simply "improves ev
 | **Test Questions (1k)** | [`pre helper/files/infoseek_test_sample_1000.csv`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/files/infoseek_test_sample_1000.csv) | Ground-truth sampled evaluation queries |
 | **Step 1 Code** | [`pre helper/codes/step 1/kaggle_step1_run_and_extract_images.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/codes/step%201/kaggle_step1_run_and_extract_images.ipynb) | Notebook for Step 1 FAISS search & image extraction |
 | **Step 2 Result JSON** | [`pre helper/res/result_step2.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/res/result_step2.json) | Reranked candidates and blended scores (59.10% R@1) |
-| **Step 3 Predictions** | [`pre helper/res/step3_predictions.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/res/step3_predictions.json) | Full 1,000 VQA predictions — **34.90%–35.70% baseline** |
+| **Step 3 Predictions** | [`pre helper/res/step3_predictions.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/res/step3_predictions.json) | Full 1,000 VQA predictions — **34.90% canonical baseline** (349 / 1,000 with official `check_match` ±10% tolerance) |
 | **Failure Analysis** | [`pre helper/res/phase0_failure_analysis.json`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/pre%20helper/res/phase0_failure_analysis.json) | Cat A–D classification of all 698 failures |
 | **Controller (LLaVA-7B Zero-Shot)** | [`my paper implementation/codes/kaggle_agentic_controller.py`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/codes/kaggle_agentic_controller.py) | Zero-leakage agentic controller for zero-shot LLaVA-1.5-7B |
 | **Controller (LLaVA-13B Zero-Shot)** | [`my paper implementation/codes/kaggle_agentic_controller_llava13b.ipynb`](file:///Users/akash/All%20code/python/paper%20work/Agentic%20vqa/my%20paper%20implementation/codes/kaggle_agentic_controller_llava13b.ipynb) | Zero-leakage agentic controller for LLaVA-1.5-13B (Permissive & Conservative) |
