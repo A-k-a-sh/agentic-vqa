@@ -76,12 +76,24 @@ success_deltas = [step2_data[q]['retrieval_similarities'][0] - step2_data[q]['re
                   for q in success_qids if q in step2_data]
 
 
+FIGS_DIR = os.path.join(OUTPUT_DIR, "figs")
+os.makedirs(FIGS_DIR, exist_ok=True)
+
+
+def save_figure(fig, base_filename):
+    pdf_path = os.path.join(FIGS_DIR, f"{base_filename}.pdf")
+    png_path = os.path.join(FIGS_DIR, f"{base_filename}.png")
+    fig.savefig(pdf_path, bbox_inches='tight')
+    fig.savefig(png_path, bbox_inches='tight')
+    print(f"Saved: {pdf_path} and {png_path}")
+
+
 # ===========================================================================
 # FIGURE 1: Failure Taxonomy Donut & Score-Margin Confidence Signal
 # ===========================================================================
 def plot_figure_1():
     print("Generating Figure 1: Failure Taxonomy and Score-Margin Distribution...")
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.2, 3.2), gridspec_kw={'width_ratios': [1.1, 1.3]})
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.5, 3.2), gridspec_kw={'width_ratios': [1.0, 1.25]})
 
     # --- Panel A: Donut Chart of Failure Taxonomy ---
     labels = [
@@ -100,9 +112,9 @@ def plot_figure_1():
         explode=explode, 
         colors=colors, 
         autopct='%1.1f%%',
-        pctdistance=0.75,
+        pctdistance=0.77,
         startangle=140,
-        wedgeprops=dict(width=0.45, edgecolor='white', linewidth=1.5)
+        wedgeprops=dict(width=0.42, edgecolor='white', linewidth=1.5)
     )
     for autotext in autotexts:
         autotext.set_color('white')
@@ -111,7 +123,7 @@ def plot_figure_1():
 
     # Central Callout Text
     ax1.text(0, 0, 'InfoSeek\n1,000 Queries\n\nCat B+C = 40.8%\n(Rigid Bottleneck)',
-             ha='center', va='center', fontsize=8, weight='bold', color='#263238')
+             ha='center', va='center', fontsize=6.8, weight='bold', color='#263238', linespacing=1.15)
 
     ax1.set_title('(a) Phase 0 Failure Taxonomy (OMGM)', pad=10)
 
@@ -143,12 +155,8 @@ def plot_figure_1():
     ax2.legend(loc='upper right', frameon=True, facecolor='white', edgecolor='#CFD8DC', framealpha=0.9)
 
     plt.tight_layout()
-    pdf_path = os.path.join(OUTPUT_DIR, "fig1_failure_taxonomy_and_score_margin.pdf")
-    png_path = os.path.join(OUTPUT_DIR, "fig1_failure_taxonomy_and_score_margin.png")
-    plt.savefig(pdf_path, bbox_inches='tight')
-    plt.savefig(png_path, bbox_inches='tight')
+    save_figure(fig, "fig1_failure_taxonomy_and_score_margin")
     plt.close()
-    print(f"Saved: {pdf_path} and {png_path}")
 
 
 # ===========================================================================
@@ -156,7 +164,7 @@ def plot_figure_1():
 # ===========================================================================
 def plot_figure_2():
     print("Generating Figure 2: Verifier Diagnostic & Debiasing...")
-    fig, ax = plt.subplots(figsize=(6.8, 3.2))
+    fig, ax = plt.subplots(figsize=(7.6, 3.8))
 
     metrics = [
         'Pairwise Accuracy\n(Target: >85%)',
@@ -180,47 +188,49 @@ def plot_figure_2():
         h = rect.get_height()
         ax.annotate(f'{h:.1f}%',
                     xy=(rect.get_x() + rect.get_width() / 2, h),
-                    xytext=(0, 2), textcoords="offset points",
+                    xytext=(0, 2.5), textcoords="offset points",
                     ha='center', va='bottom', fontsize=8, weight='bold', color='#37474F')
 
     for rect in rects2:
         h = rect.get_height()
         ax.annotate(f'{h:.1f}%',
                     xy=(rect.get_x() + rect.get_width() / 2, h),
-                    xytext=(0, 2), textcoords="offset points",
+                    xytext=(0, 2.5), textcoords="offset points",
                     ha='center', va='bottom', fontsize=8, weight='bold', color='#0D47A1')
 
-    # Draw 50% random chance line for Pairwise Accuracy
-    ax.axhline(50.0, color='#D32F2F', linestyle=':', linewidth=1.2, alpha=0.7)
-    ax.text(0.35, 51.5, 'Random Chance (50.0%)', color='#D32F2F', fontsize=7.5, fontstyle='italic')
+    # Draw 50% random chance line specifically for binary Pairwise Accuracy (Metric 0)
+    ax.hlines(50.0, -0.42, 0.42, color='#D32F2F', linestyle=':', linewidth=1.5, alpha=0.85)
+    ax.text(0.0, 52.0, 'Random Chance (50.0%)', color='#D32F2F', fontsize=7.2, fontstyle='italic', ha='center')
 
-    # Annotate key jumps
-    ax.annotate('+57.8% Gain\n(Visual Calibration)', xy=(0, 92), xytext=(0, 102),
-                ha='center', fontsize=7.5, weight='bold', color='#0D47A1',
+    # Annotate key jumps with clean badge boxes and non-overlapping arrow targets
+    ax.annotate('+57.8% Gain\n(Visual Calibration)', 
+                xy=(width/2, 96.5), xytext=(width/2, 107.5),
+                ha='center', fontsize=7.2, weight='bold', color='#0D47A1',
+                bbox=dict(boxstyle='round,pad=0.22', facecolor='#E3F2FD', edgecolor='#90CAF9', alpha=0.9),
                 arrowprops=dict(arrowstyle='->', color='#0D47A1', lw=1.2))
 
-    ax.annotate('13.2x Bias Drop\n(17.5% -> 1.33%)', xy=(1, 20), xytext=(1, 35),
-                ha='center', fontsize=7.5, weight='bold', color='#0D47A1',
+    ax.annotate('13.2x Bias Drop\n(17.5% -> 1.33%)', 
+                xy=(1 + width/2, 8.0), xytext=(1.0, 31.0),
+                ha='center', fontsize=7.2, weight='bold', color='#0D47A1',
+                bbox=dict(boxstyle='round,pad=0.22', facecolor='#E3F2FD', edgecolor='#90CAF9', alpha=0.9),
                 arrowprops=dict(arrowstyle='->', color='#0D47A1', lw=1.2))
 
-    ax.annotate('100% Strict Token\nProtocol Adherence', xy=(2, 10), xytext=(2, 35),
-                ha='center', fontsize=7.5, weight='bold', color='#0D47A1',
+    ax.annotate('100% Strict Token\nProtocol (0.0% Drift)', 
+                xy=(2 + width/2, 8.0), xytext=(2.0, 66.0),
+                ha='center', fontsize=7.2, weight='bold', color='#0D47A1',
+                bbox=dict(boxstyle='round,pad=0.22', facecolor='#E3F2FD', edgecolor='#90CAF9', alpha=0.9),
                 arrowprops=dict(arrowstyle='->', color='#0D47A1', lw=1.2))
 
-    ax.set_ylabel('Percentage (%)', fontsize=10)
+    ax.set_ylabel('Percentage (%)', fontsize=9.5)
     ax.set_title('Diagnostic Validation: Zero-Shot Foundation VLM vs. Calibrated PEFT Verifier (Held-out 600 Pairs)', pad=12)
     ax.set_xticks(x)
-    ax.set_xticklabels(metrics, fontsize=8.5)
-    ax.set_ylim(0, 115)
-    ax.legend(loc='upper right', frameon=True, facecolor='white', edgecolor='#CFD8DC')
+    ax.set_xticklabels(metrics, fontsize=8, rotation=20, ha='right', rotation_mode='anchor')
+    ax.set_ylim(0, 122)
+    ax.legend(loc='upper center', bbox_to_anchor=(0.58, 0.98), ncol=1, frameon=True, facecolor='white', edgecolor='#CFD8DC', framealpha=0.95, fontsize=7.8)
 
     plt.tight_layout()
-    pdf_path = os.path.join(OUTPUT_DIR, "fig2_verifier_diagnostic_and_debiasing.pdf")
-    png_path = os.path.join(OUTPUT_DIR, "fig2_verifier_diagnostic_and_debiasing.png")
-    plt.savefig(pdf_path, bbox_inches='tight')
-    plt.savefig(png_path, bbox_inches='tight')
+    save_figure(fig, "fig2_verifier_diagnostic_and_debiasing")
     plt.close()
-    print(f"Saved: {pdf_path} and {png_path}")
 
 
 # ===========================================================================
@@ -228,15 +238,15 @@ def plot_figure_2():
 # ===========================================================================
 def plot_figure_3():
     print("Generating Figure 3: The 2x2 Capacity & Verification Matrix...")
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.4, 3.4), gridspec_kw={'width_ratios': [1.0, 1.25]})
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.5, 3.6), gridspec_kw={'width_ratios': [1.0, 1.25]})
 
     # --- Panel A: VQA Accuracy Across 4 Quadrants ---
     configs = [
-        'Baseline\n(OMGM)',
-        '7B LoRA\n(Cat B)',
-        '13B LoRA\n(Cat B)',
-        '7B LoRA\n(Cat B+C)',
-        '13B LoRA\n(Cat B+C)'
+        'Baseline (OMGM)',
+        '7B LoRA (Cat B)',
+        '13B LoRA (Cat B)',
+        '7B LoRA (Cat B+C)',
+        '13B LoRA (Cat B+C)'
     ]
     accuracies = [34.90, 36.00, 35.60, 35.10, 36.30]
     bar_colors = ['#455A64', '#00897B', '#5C6BC0', '#80CBC4', '#283593']
@@ -266,9 +276,9 @@ def plot_figure_3():
     ax1.set_ylabel('InfoSeek VQA Accuracy (%)', fontsize=9.5)
     ax1.set_ylim(34.0, 37.2)
     ax1.set_xticks(x)
-    ax1.set_xticklabels(configs, fontsize=7.5)
+    ax1.set_xticklabels(configs, fontsize=8, rotation=25, ha='right', rotation_mode='anchor')
     ax1.set_title('(a) VQA Accuracy Scaling', pad=10)
-    ax1.legend(loc='lower left', fontsize=7.5)
+    ax1.legend(loc='lower left', fontsize=7.5, frameon=True, facecolor='white', edgecolor='#CFD8DC', framealpha=0.9)
 
     # --- Panel B: Recovery vs Degradation Dynamics ---
     models = ['7B (Cat B)', '13B (Cat B)', '7B (Cat B+C)', '13B (Cat B+C)']
@@ -293,23 +303,22 @@ def plot_figure_3():
 
     # Separation line between Cat B and Cat B+C
     ax2.axvline(1.5, color='#B0BEC5', linestyle=':', linewidth=1.5)
-    ax2.text(0.75, 43, 'Category B Only\n(Focused Reranking)', ha='center', fontsize=7.5, weight='bold', color='#37474F')
-    ax2.text(2.5, 43, 'Category B + C\n(Multi-Section Context)', ha='center', fontsize=7.5, weight='bold', color='#37474F')
+    ax2.text(0.5, 53.5, 'Category B Only\n(Focused Reranking)', ha='center', va='center', fontsize=7.5, weight='bold', color='#263238',
+             bbox=dict(boxstyle='round,pad=0.28', facecolor='#ECEFF1', edgecolor='#CFD8DC', alpha=0.95))
+    ax2.text(2.5, 53.5, 'Category B + C\n(Multi-Section Context)', ha='center', va='center', fontsize=7.5, weight='bold', color='#263238',
+             bbox=dict(boxstyle='round,pad=0.28', facecolor='#ECEFF1', edgecolor='#CFD8DC', alpha=0.95))
 
     ax2.set_ylabel('Number of Queries (out of 1,000)', fontsize=9.5)
-    ax2.set_ylim(0, 50)
+    ax2.set_ylim(0, 58)
+    ax2.set_yticks([0, 10, 20, 30, 40, 50])
     ax2.set_xticks(x2)
-    ax2.set_xticklabels(models, fontsize=8)
+    ax2.set_xticklabels(models, fontsize=8, rotation=25, ha='right', rotation_mode='anchor')
     ax2.set_title('(b) Query Recovery vs. Degradation Dynamics', pad=10)
-    ax2.legend(loc='upper left', fontsize=7.5, frameon=True, facecolor='white', edgecolor='#CFD8DC')
+    ax2.legend(loc='upper left', bbox_to_anchor=(0.01, 0.85), fontsize=7.2, frameon=True, facecolor='white', edgecolor='#CFD8DC', framealpha=0.95)
 
     plt.tight_layout()
-    pdf_path = os.path.join(OUTPUT_DIR, "fig3_scaling_matrix_double_dissociation.pdf")
-    png_path = os.path.join(OUTPUT_DIR, "fig3_scaling_matrix_double_dissociation.png")
-    plt.savefig(pdf_path, bbox_inches='tight')
-    plt.savefig(png_path, bbox_inches='tight')
+    save_figure(fig, "fig3_scaling_matrix_double_dissociation")
     plt.close()
-    print(f"Saved: {pdf_path} and {png_path}")
 
 
 if __name__ == '__main__':
