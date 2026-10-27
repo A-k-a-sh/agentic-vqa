@@ -248,14 +248,14 @@ To overcome the zero-shot failure modes identified in Section 7.4, we trained a 
 
 #### Held-Out Validation Benchmark (600 Symmetric Pairs, Cell 8):
 
-| Metric | Zero-Shot LLaVA-1.5-7B | Ours: Fine-Tuned LoRA Verifier | Scientific Impact |
+| Metric | Zero-Shot LLaVA-1.5-7B (600 Pairs) | Ours: Fine-Tuned LoRA Verifier (600 Pairs) | Scientific Impact |
 | :--- | :---: | :---: | :--- |
-| **Overall Pairwise Disambiguation Accuracy** | 32.50% | **90.33% (542 / 600)** | **+57.83% absolute jump** in fine-grained visual discrimination |
-| **Target-A Accuracy** | 20.00% | **91.00% (273 / 300)** | Balanced recognition regardless of label placement |
-| **Target-B Accuracy** | 45.00% | **89.67% (269 / 300)** | Balanced recognition regardless of label placement |
-| **Positional Primacy Bias ($|Acc_A - Acc_B|$)** | **17.50%** | **1.33%** | **Virtually eliminated bias** (target was $<2.00\%$) |
+| **Overall Pairwise Disambiguation Accuracy** | **39.50% (237 / 600)** | **90.33% (542 / 600)** | **+50.83% absolute jump** in fine-grained visual discrimination |
+| **Target-A Accuracy** | **50.33% (151 / 300)** | **91.00% (273 / 300)** | Balanced recognition regardless of label placement |
+| **Target-B Accuracy** | **28.67% (86 / 300)** | **89.67% (269 / 300)** | Balanced recognition regardless of label placement |
+| **Positional Primacy Bias ($|Acc_A - Acc_B|$)** | **21.67%** | **1.33%** | **16.3x bias reduction** (mitigated down to near-parity) |
 | **Symmetric Pair Consistency** | ~10.00% | **88.33% (265 / 300 pairs)** | Both presentation orders produce the identical correct entity |
-| **Formatting Collapse / Unparseable Rate** | **47.50%** | **0.00% (0 / 600)** | **100% adherence** to strict `(A) [Entity]` / `(B) [Entity]` token protocol |
+| **Formatting Collapse / Unparseable Rate** | **38.83% (233 / 600)** | **0.00% (0 / 600)** | **100% adherence** to strict `(A) [Entity]` / `(B) [Entity]` token protocol |
 
 #### 7.5.1 Zero-Leakage Data Disjointness Audit (Entity-Level & Image-Level Disjointness)
 

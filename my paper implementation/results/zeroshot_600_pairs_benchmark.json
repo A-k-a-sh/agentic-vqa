@@ -1,0 +1,19 @@
+{
+  "benchmark": "Zero-Shot LLaVA-1.5-7B on Held-Out Symmetric Validation Pairs",
+  "data_file": "verifier_val_symmetric_600.json",
+  "total_pairs": 600,
+  "accuracy": 39.50,
+  "correct_count": 237,
+  "target_a_total": 300,
+  "target_a_correct": 151,
+  "target_a_accuracy": 50.33,
+  "target_b_total": 300,
+  "target_b_correct": 86,
+  "target_b_accuracy": 28.67,
+  "positional_primacy_bias": 21.67,
+  "formatting_collapse_count": 233,
+  "formatting_collapse_pct": 38.83,
+  "hardware": "Kaggle NVIDIA Tesla T4",
+  "quantization": "4-bit NF4 (BitsAndBytes)",
+  "date": "2026-10-28"
+}
