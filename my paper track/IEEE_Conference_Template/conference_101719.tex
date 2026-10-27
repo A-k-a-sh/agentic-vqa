@@ -331,13 +331,13 @@ Adaptive Agentic Retrieval rescues queries failed by rigid baselines:
 
 \section{Discussion, Generalization, and Limitations}
 
-\textbf{Data Disjointness \& Generalization:} Our audit between 6,000 fine-tuning pairs ($\mathcal{D}_{sym}$, OVEN) and 1,000 InfoSeek test queries establishes: (1) \textbf{100\% strict image disjointness} (0/983 test images seen during training); (2) \textbf{88.0\% entity disjointness} (528/600 unique test entities absent as training targets); and (3) \textbf{Generalization transfer}: \textbf{85.19\%} (23/27) of 7B and \textbf{90.91\%} (40/44) of 13B rescued queries involve completely unseen entities, proving symmetric LoRA functions as an open-world visual adjudicator rather than a memorization cache.
+\textbf{Data Disjointness \& Generalization:} Our audit between 6,000 fine-tuning pairs ($\mathcal{D}_{sym}$, OVEN) and 1,000 InfoSeek test queries establishes: (1) \textbf{100\% strict image disjointness} (0/983 test images seen during training); (2) \textbf{88.0\% entity disjointness} (528/600 unique test entities absent as training targets); and (3) \textbf{Generalization transfer}: \textbf{85.19\%} (23/27) of 7B and \textbf{90.91\%} (40/44) of 13B rescued queries involve completely unseen entities, confirming that symmetric LoRA generalizes as an open-world visual adjudicator rather than memorizing training entity identities.
 
 \textbf{Efficiency \& Deployment:}
 (1) Fast-Path gating ($\tau = 0.025$) routes 49.2\% of queries with zero extra compute.
 (2) The controller averages only \textbf{1.51 generator calls per query}.
-(3) Dual Tesla T4 latency is 1.65s (7B) and 3.14s (Champion 13B).
-(4) Under 4-bit NF4 double quantization, peak VRAM is $\sim$\textbf{4.1\,GB per GPU}, running on consumer hardware without enterprise clusters.
+(3) Dual Tesla T4 latency is 1.65s (7B) and 3.14s (unified 13B).
+(4) Under 4-bit NF4 double quantization, peak VRAM is $\sim$\textbf{4.1\,GB per GPU}, demonstrating deployment feasibility on accessible commodity GPU hardware without requiring multi-node enterprise compute clusters.
 
 \textbf{Limitations \& Future Work:}
 (1) \textit{Category A Retrieval Ceiling (15.30\%):} In 153 queries, ground-truth entities are absent from Step~1 coarse retrieval, bounding reranking recovery; future work will explore iterative multi-query search.
@@ -345,7 +345,7 @@ Adaptive Agentic Retrieval rescues queries failed by rigid baselines:
 
 
 \section{Conclusion}
-In this paper, we addressed the rigid feed-forward failure mode in Knowledge-Based Visual Question Answering. Auditing 1,000 InfoSeek queries over 100,000 Wikipedia articles, we revealed that 40.8\% of errors stem from premature pruning of valid candidates, accompanied by a sharp $3.3\times$ score margin collapse ($\Delta = 0.0512 \to 0.0155$). We presented Adaptive Agentic Retrieval, isolating ambiguous queries via zero-cost gating ($\tau = 0.025$). Uncovering severe zero-shot VLM positional bias (17.5\%), we demonstrated that symmetric PEFT ($r=16$) eliminates positional bias to 1.33\% and raises adjudication accuracy to 90.33\%. Furthermore, our scaling analysis revealed a $2 \times 2$ double dissociation: 7B is Pareto-optimal for pairwise adjudication (+1.10\% net, 62.8\% win-rate), whereas 13B is necessary to resist distractor dilution during multi-section evidence expansion (+1.40\% net, 44 recoveries). Our champion model achieves 36.30\% VQA accuracy on InfoSeek under strict zero leakage, establishing a new state of the art in adaptive multimodal retrieval.
+In this paper, we addressed the rigid feed-forward failure mode in Knowledge-Based Visual Question Answering. Auditing 1,000 InfoSeek queries over 100,000 Wikipedia articles, we revealed that 40.8\% of queries (62.7\% of pipeline errors) stem from premature pruning of valid candidates, accompanied by a sharp $2.9\times$ score margin collapse ($\Delta = 0.0448 \to 0.0157$). We presented Adaptive Agentic Retrieval, isolating ambiguous queries via a closed-form gating policy ($\tau = 0.025$). Uncovering severe zero-shot VLM positional primacy bias (21.67\%), we demonstrated that symmetric PEFT ($r=16$) mitigates positional bias to near-parity (1.33\%) and raises adjudication accuracy to 90.33\%. Furthermore, our scaling analysis revealed a $2 \times 2$ capacity-context interaction: 7B is Pareto-optimal for pairwise adjudication (+1.10\% net, 62.8\% win-rate), whereas 13B is necessary to resist distractor dilution during multi-section evidence expansion (+1.40\% net, 44 recoveries). Our unified framework achieves 36.30\% VQA accuracy on InfoSeek under strict zero ground-truth leakage, establishing a new state-of-the-art benchmark for adaptive multimodal retrieval.
 
 \begin{thebibliography}{22}
 \footnotesize
