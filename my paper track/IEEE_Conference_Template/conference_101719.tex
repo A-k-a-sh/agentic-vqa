@@ -39,23 +39,23 @@
 \author{
 \IEEEauthorblockN{Abdullah Mohammed Asif}
 \IEEEauthorblockA{\textit{Department of Computer Science and Engineering} \\
-\textit{Ctg. Univ. of Eng. and Tech.}\\
-Raouzan, Bangladesh \\
+\textit{Chittagong University of Engineering and Technology}\\
+Raozan, Chattogram-4349, Bangladesh \\
 u2104060@student.cuet.ac.bd}
 
 \and
 
 \IEEEauthorblockN{Shahad Abir}
 \IEEEauthorblockA{\textit{Department of Computer Science and Engineering} \\
-\textit{Ctg. Univ. of Eng. and Tech.}\\
-Raouzan, Bangladesh \\
+\textit{Chittagong University of Engineering and Technology}\\
+Raozan, Chattogram-4349, Bangladesh \\
 u2104035@student.cuet.ac.bd}
 }
 
 \maketitle
 
 \begin{abstract}
-Knowledge-Based Visual Question Answering (KB-VQA) requires external world knowledge to answer open-ended questions grounded in visual entities. While state-of-the-art multi-stage retrieval pipelines search massive encyclopedic corpora, they suffer from a fundamental architectural flaw: rigidity. Queries traverse fixed sequential stages---coarse search, multimodal reranking, and generation---without uncertainty detection or adaptive branching. Through an extensive empirical audit of 1,000 queries on InfoSeek against the full 100,000-article Wikipedia knowledge base, we uncover that 40.8\% of pipeline errors stem not from retrieval absence, but from premature filtering of valid candidates in the candidate pool. Ambiguous routing instances exhibit a sharp 3.3$\times$ collapse in multimodal reranking score margin ($\Delta = 0.0512 \to 0.0155$). Leveraging this signal, we propose Adaptive Agentic Retrieval, isolating high-risk queries via a zero-cost threshold ($\tau = 0.025$) to trigger dynamic verification and context expansion. We show that off-the-shelf zero-shot vision-language models fail as adjudicators due to severe positional primacy bias (17.5\%), reducing recovery to a sub-random coin-flip. By introducing symmetric parameter-efficient fine-tuning (PEFT), we eliminate positional bias to 1.33\% and unlock genuine error recovery. Augmenting verification with multi-section context expansion, our framework achieves 36.30\% VQA accuracy (+1.40\% over OMGM, rescuing 44 failed queries) under strict zero ground-truth leakage, establishing a new state of the art.
+Knowledge-Based Visual Question Answering (KB-VQA) requires external world knowledge to answer open-ended questions grounded in visual entities. While state-of-the-art multi-stage retrieval pipelines search massive encyclopedic corpora, they suffer from an inherent architectural bottleneck: rigid feed-forward execution. Queries traverse fixed sequential stages---coarse search, multimodal reranking, and generation---without uncertainty detection or adaptive branching. Through an extensive empirical audit of 1,000 queries on InfoSeek against the full 100,000-article Wikipedia knowledge base, we uncover that 40.8\% of all evaluated queries (accounting for 62.7\% of pipeline failures) fail not from retrieval absence, but from premature filtering of valid candidates within the candidate pool. Ambiguous routing instances exhibit a sharp 2.9$\times$ collapse in multimodal reranking score margin ($\Delta = 0.0448 \to 0.0157$). Leveraging this intrinsic signal, we propose Adaptive Agentic Retrieval, isolating high-risk queries via a closed-form scalar threshold ($\tau = 0.025$) to trigger dynamic visual verification and evidence expansion. We show that widely adopted open-source vision-language models fail as zero-shot adjudicators due to severe positional primacy bias (21.67\%), yielding decision accuracy near random chance level. By introducing symmetric parameter-efficient fine-tuning (PEFT), we mitigate positional bias to near-parity (1.33\%) and unlock genuine error recovery. Augmenting verification with multi-section context expansion, our unified framework achieves 36.30\% VQA accuracy (+1.40\% over OMGM, rescuing 44 failed queries) under strict zero ground-truth leakage, establishing a new state-of-the-art benchmark for adaptive multimodal retrieval on InfoSeek.
 \end{abstract}
 
 \begin{IEEEkeywords}
