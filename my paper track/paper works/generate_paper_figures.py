@@ -77,15 +77,18 @@ success_deltas = [step2_data[q]['retrieval_similarities'][0] - step2_data[q]['re
 
 
 FIGS_DIR = os.path.join(OUTPUT_DIR, "figs")
+IEEE_FIGS_DIR = os.path.join(BASE_DIR, "my paper track/IEEE_Conference_Template/figs")
 os.makedirs(FIGS_DIR, exist_ok=True)
+os.makedirs(IEEE_FIGS_DIR, exist_ok=True)
 
 
 def save_figure(fig, base_filename):
-    pdf_path = os.path.join(FIGS_DIR, f"{base_filename}.pdf")
-    png_path = os.path.join(FIGS_DIR, f"{base_filename}.png")
-    fig.savefig(pdf_path, bbox_inches='tight')
-    fig.savefig(png_path, bbox_inches='tight')
-    print(f"Saved: {pdf_path} and {png_path}")
+    for target_dir in [FIGS_DIR, IEEE_FIGS_DIR]:
+        pdf_path = os.path.join(target_dir, f"{base_filename}.pdf")
+        png_path = os.path.join(target_dir, f"{base_filename}.png")
+        fig.savefig(pdf_path, bbox_inches='tight')
+        fig.savefig(png_path, bbox_inches='tight')
+    print(f"Saved: {base_filename}.pdf and .png to both paper works/figs and IEEE_Conference_Template/figs")
 
 
 # ===========================================================================
@@ -172,7 +175,7 @@ def plot_figure_2():
         'Unparseable / Drift\n(Instruction Collapse)',
         'Symmetric Consistency\n(Order Invariance)'
     ]
-    zero_shot_vals = [32.50, 17.50, 47.50, 10.00]
+    zero_shot_vals = [39.50, 21.67, 38.83, 10.00]
     lora_vals = [90.33, 1.33, 0.00, 88.33]
 
     x = np.arange(len(metrics))
@@ -203,13 +206,13 @@ def plot_figure_2():
     ax.text(0.0, 52.0, 'Random Chance (50.0%)', color='#D32F2F', fontsize=7.2, fontstyle='italic', ha='center')
 
     # Annotate key jumps with clean badge boxes and non-overlapping arrow targets
-    ax.annotate('+57.8% Gain\n(Visual Calibration)', 
+    ax.annotate('+50.8% Gain\n(Visual Calibration)', 
                 xy=(width/2, 96.5), xytext=(width/2, 107.5),
                 ha='center', fontsize=7.2, weight='bold', color='#0D47A1',
                 bbox=dict(boxstyle='round,pad=0.22', facecolor='#E3F2FD', edgecolor='#90CAF9', alpha=0.9),
                 arrowprops=dict(arrowstyle='->', color='#0D47A1', lw=1.2))
 
-    ax.annotate('13.2x Bias Drop\n(17.5% -> 1.33%)', 
+    ax.annotate('16.3x Bias Drop\n(21.7% -> 1.33%)', 
                 xy=(1 + width/2, 8.0), xytext=(1.0, 31.0),
                 ha='center', fontsize=7.2, weight='bold', color='#0D47A1',
                 bbox=dict(boxstyle='round,pad=0.22', facecolor='#E3F2FD', edgecolor='#90CAF9', alpha=0.9),
