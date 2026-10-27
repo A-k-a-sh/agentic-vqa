@@ -145,7 +145,7 @@ Let $e_{(1)}$ and $e_{(2)}$ denote the top-two candidates sorted by descending s
 \begin{equation}
 \Delta = S_1 - S_2.
 \end{equation}
-Our control policy $\pi(q)$ is defined as a zero-cost deterministic threshold function:
+Our control policy $\pi(q)$ is defined as a closed-form deterministic gating policy:
 \begin{equation}
 \pi(q) = \begin{cases}
 \text{Fast-Path}(e_{(1)}), & \text{if } \Delta \ge \tau \\
@@ -158,46 +158,46 @@ where $\tau = 0.025$. Confident queries ($\Delta \ge 0.025$, 49.2\% of the bench
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=\linewidth]{figs/fig2_verifier_diagnostic_and_debiasing}
-\caption{Verifier diagnostic and debiasing benchmark on ambiguous Wikipedia entity disambiguation. (a) Zero-shot VLMs exhibit 47.5\% formatting collapse and 17.5\% positional primacy bias. (b) Symmetric LoRA ($r=16$) raises accuracy to 90.33\% and reduces positional primacy bias down to 1.33\%.}
+\caption{Verifier diagnostic and debiasing benchmark on held-out ambiguous Wikipedia entity disambiguation ($N=600$ pairs). (a) Zero-shot VLMs exhibit 38.83\% formatting non-adherence and 21.67\% positional primacy bias. (b) Symmetric LoRA ($r=16$) raises accuracy to 90.33\% and mitigates positional primacy bias to 1.33\% ($16.3\times$ reduction).}
 \label{fig:verifier_diagnostic}
 \end{figure}
 
 \subsection{The Zero-Shot Verification Dilemma and PEFT Calibration}
-Prompting zero-shot VLMs (LLaVA-1.5-7B) to inspect $I_q$ with \texttt{"Which entity is shown? (A) [Entity 1] or (B) [Entity 2]"} fails due to compound defects: 47.5\% formatting collapse, 17.5\% positional primacy bias ($Acc_A=20.0\%$ vs $Acc_B=45.0\%$), and 32.5\% raw accuracy (45.6\%--47.2\% win-rate), acting as an uncalibrated coin-flip (Fig.~\ref{fig:verifier_diagnostic}(a)).
+Prompting zero-shot VLMs (LLaVA-1.5-7B) to inspect $I_q$ with \texttt{"Which entity is shown? (A) [Entity 1] or (B) [Entity 2]"} fails due to compound defects: 38.83\% formatting non-adherence (unparseable conversational drift), 21.67\% positional primacy bias ($Acc_A=50.33\%$ vs $Acc_B=28.67\%$), and 39.50\% raw pairwise accuracy, resulting in empirical win-rates of only 45.6\%--47.2\% that resemble random guessing (Fig.~\ref{fig:verifier_diagnostic}(a)).
 
 \begin{table}[!htbp]
-\caption{Verifier Calibration Benchmark: Zero-Shot Foundation VLM vs. Calibrated Symmetric LoRA Verifier}
+\caption{Verifier Calibration Benchmark: Zero-Shot Foundation VLM vs. Calibrated Symmetric LoRA Verifier on Held-Out Symmetric Validation Benchmark ($N=600$ Pairs)}
 \label{tab:verifier_calibration}
 \centering
 \resizebox{\columnwidth}{!}{%
-\begin{tabular}{@{}l c c c@{}}
+\begin{tabular}{@{}l c c@{}}
 \toprule
-\textbf{Evaluation Metric} & \textbf{Zero-Shot (40 Pairs)} & \textbf{Zero-Shot (600 Pairs)} & \textbf{LoRA Verifier (600 Pairs)} \\
+\textbf{Evaluation Metric} & \textbf{Zero-Shot (Base 7B, $N=600$)} & \textbf{Ours: LoRA Verifier ($N=600$)} \\
 \midrule
-Disambiguation Accuracy & 32.5\% (13/40) & 32.50\% & \textbf{90.33\%} (542/600) \\
-Option (A) Selection & 35.0\% (14/40) & 20.00\% (Target-A) & \textbf{91.00\%} (Target-A) \\
-Option (B) Selection & 17.5\% (7/40) & 45.00\% (Target-B) & \textbf{89.67\%} (Target-B) \\
-Positional Primacy Bias & 17.5\% & 17.50\% & \textbf{1.33\%} \\
-Formatting Collapse & 47.5\% (19/40) & 47.50\% & \textbf{0.00\%} (0/600) \\
-Symmetric Consistency & --- & $\sim$10.00\% & \textbf{88.33\%} (265/300) \\
-Empirical Win-Rate & --- & 45.6\%--47.2\% & \textbf{62.8\%} (Pareto 7B) \\
+Disambiguation Accuracy & 39.50\% (237/600) & \textbf{90.33\%} (542/600) \\
+Option (A) Target Accuracy & 50.33\% (151/300) & \textbf{91.00\%} (273/300) \\
+Option (B) Target Accuracy & 28.67\% (86/300) & \textbf{89.67\%} (269/300) \\
+Positional Primacy Bias ($|Acc_A - Acc_B|$) & 21.67\% & \textbf{1.33\%} \\
+Formatting Non-Adherence & 38.83\% (233/600) & \textbf{0.00\%} (0/600) \\
+Symmetric Order Consistency & $\sim$10.00\% & \textbf{88.33\%} (265/300 pairs) \\
+Empirical Decision Win-Rate & 45.6\%--47.2\% & \textbf{62.8\%} (Pareto 7B) \\
 \bottomrule
 \end{tabular}%
 }
 \end{table}
 
-To eliminate positional bias, we formulate symmetric Parameter-Efficient Fine-Tuning (PEFT). We construct a calibration dataset of 6,000 entity pairs ($\mathcal{D}_{sym}$) derived from standard OVEN/InfoSeek training entities with hard negatives, enforcing strict symmetry: 50\% of target entities appear as Option (A) and 50\% as Option (B). We apply LoRA~\cite{lora} targeting all linear projection layers ($\mathbf{W}_q, \mathbf{W}_k, \mathbf{W}_v, \mathbf{W}_o, \mathbf{W}_{gate}, \mathbf{W}_{up}, \mathbf{W}_{down}$) with rank $r=16$, scaling $\alpha=32$, and dropout $0.05$ under 4-bit NF4 double quantization on 2$\times$ NVIDIA Tesla T4 GPUs for 1 epoch (750 steps).
+To mitigate positional bias, we formulate symmetric Parameter-Efficient Fine-Tuning (PEFT). We construct a calibration dataset of 6,000 entity pairs ($\mathcal{D}_{sym}$) derived from standard OVEN/InfoSeek training entities with hard negatives, enforcing strict symmetry: 50\% of target entities appear as Option (A) and 50\% as Option (B). We apply LoRA~\cite{lora} targeting all linear projection layers ($\mathbf{W}_q, \mathbf{W}_k, \mathbf{W}_v, \mathbf{W}_o, \mathbf{W}_{gate}, \mathbf{W}_{up}, \mathbf{W}_{down}$) with rank $r=16$, scaling $\alpha=32$, and dropout $0.05$ under 4-bit NF4 double quantization on 2$\times$ NVIDIA Tesla T4 GPUs for 1 epoch (750 steps).
 
-As shown in Table~\ref{tab:verifier_calibration} and Fig.~\ref{fig:verifier_diagnostic}(b), symmetric PEFT fundamentally transforms the verifier: accuracy surges from 32.50\% to \textbf{90.33\%} (542/600), positional bias drops to \textbf{1.33\%}, formatting collapse drops to 0.00\%, and symmetric consistency reaches 88.33\%.
+As shown in Table~\ref{tab:verifier_calibration} and Fig.~\ref{fig:verifier_diagnostic}(b), symmetric PEFT fundamentally transforms the verifier: pairwise accuracy surges from 39.50\% (237/600) to \textbf{90.33\%} (542/600), positional bias drops from 21.67\% to \textbf{1.33\%} (a $16.3\times$ reduction), formatting non-adherence drops from 38.83\% to 0.00\%, and symmetric consistency reaches 88.33\%.
 
 \subsection{Decoupled Dual-Mode Inference and Branching}
-To prevent adapter bleed, we implement decoupled dual-mode inference:
+To prevent cross-task parameter interference and maintain base model open-ended generation fidelity, we implement decoupled dual-mode inference:
 (1) \textit{Mode 1 (Adjudication)}: For ambiguous queries, the LoRA adapter is dynamically enabled to perform single-pass visual adjudication over $e_{(1)}$ and $e_{(2)}$.
 (2) \textit{Mode 2 (Answer Generation)}: During answer synthesis, the controller disables the LoRA adapter ($\mathtt{disable\_adapter()}$). Base VLM weights generate the answer conditioned on retrieved text, preserving zero-shot generation style.
 
 When triggered on ambiguous queries ($\Delta < 0.025$), the controller executes two branches:
-\textbf{Category B Branch (Entity Switching):} The verifier inspects $I_q$ against $e_{(1)}$ and $e_{(2)}$. If it selects $e_{(2)}$, routing switches to $e_{(2)}$ and retrieves its top section $\mathcal{S}(e_{(2)})$.
-\textbf{Category C Branch (Multi-Section Context Expansion):} If the verifier confirms $e_{(1)}$, the entity is visually correct, indicating a section omission (Category~C). The controller concatenates Candidate 1's Top-1 and Top-2 sections:
+\textbf{Candidate Switching Branch (Targeting Entity Errors):} The verifier inspects $I_q$ against $e_{(1)}$ and $e_{(2)}$. If it selects $e_{(2)}$, routing dynamically switches to $e_{(2)}$ and retrieves its top evidence section $\mathcal{S}(e_{(2)})$.
+\textbf{Evidence Expansion Branch (Targeting Section Omissions):} If the verifier confirms $e_{(1)}$, the entity is visually validated, indicating a potential section omission. The controller expands the context by concatenating Candidate 1's Top-1 and Top-2 sections:
 \begin{equation}
 \mathcal{T}_{expanded} = \mathcal{S}_1(e_{(1)}) \oplus \Delta_{sep} \oplus \mathcal{S}_2(e_{(1)})
 \label{eq:context_expansion}
@@ -222,12 +222,12 @@ where $\Delta_{sep}$ denotes a section delimiter token (e.g., \texttt{"\textback
     \STATE \COMMENT{Ambiguity Zone: Execute Agentic Branching}
     \STATE Enable LoRA adapter on verifier $\mathcal{V}_{LoRA}$
     \STATE $c^* \leftarrow \mathcal{V}_{LoRA}(I_q, e_{(1)}, e_{(2)})$
-    \IF{$c^* == e_{(2)}$}
-        \STATE \COMMENT{Category B Recovery: Switch Entity}
+    \IF{$c^* = e_{(2)}$}
+        \STATE \COMMENT{Candidate Switching Branch: Switch to Candidate 2}
         \STATE $\mathcal{S}^* \leftarrow \text{RerankSections}(e_{(2)}, Q)$
         \STATE $\mathcal{A} \leftarrow \mathcal{G}_{base}(I_q, Q, \mathcal{S}^*)$ \COMMENT{LoRA disabled}
     \ELSE
-        \STATE \COMMENT{Category C Recovery: Context Expansion}
+        \STATE \COMMENT{Evidence Expansion Branch: Concatenate Top-2 Sections}
         \STATE $\mathcal{S}_1, \mathcal{S}_2 \leftarrow \text{GetTop2Sections}(e_{(1)}, Q)$
         \STATE $\mathcal{T}_{expanded} \leftarrow \mathcal{S}_1 \oplus \Delta_{sep} \oplus \mathcal{S}_2$
         \STATE $\mathcal{A} \leftarrow \mathcal{G}_{base}(I_q, Q, \mathcal{T}_{expanded})$ \COMMENT{LoRA disabled}
