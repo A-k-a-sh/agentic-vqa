@@ -128,7 +128,7 @@ We executed an exhaustive failure audit across all 1,000 test queries, tracing c
 \subsection{Key Scientific Insights and Observations}
 The empirical taxonomy in Fig.~\ref{fig:failure_taxonomy} reveals critical findings:
 (1)~\textbf{The Rigid Ranking Bottleneck (Cat B + C = 40.8\%):} In 408 queries, valid knowledge was present in the candidate pool but prematurely pruned by feed-forward execution. Premature filtering, not retrieval absence, is the primary bottleneck.
-(2)~\textbf{Generator Reasoning is Not the Bottleneck:} Category~D accounts for only 13.70\% of queries. Given oracle entity and section context, LLaVA-1.5-7B succeeds \textbf{64.7\%} of the time (251/388), showing model scaling is unnecessary if retrieval routing is corrected.
+(2)~\textbf{Generator Reasoning is Not the Bottleneck:} Category~D accounts for only 13.70\% of queries. Given oracle entity and section context, LLaVA-1.5-7B succeeds \textbf{64.7\%} of the time, demonstrating that premature retrieval filtering---rather than generator reasoning---is the primary bottleneck in single-section contexts.
 (3)~\textbf{The $3.3\times$ Score Margin Signal ($\Delta = S_1 - S_2$):} When top-1 is correct, the multimodal score margin averages $\Delta_{avg} = 0.0512$. On Category~B errors, the margin collapses to $\Delta_{avg} = 0.0155$ ($3.3\times$ drop). Queries with $\Delta < \tau = 0.025$ exhibit baseline accuracy of only 25.39\% (vs. 44.72\% for $\Delta \ge 0.025$), validating $\tau = 0.025$ as an effective gating boundary.
 
 

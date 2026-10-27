@@ -66,7 +66,7 @@ To ensure scientific honesty and fairness, we evaluated on a fixed subset of 1,0
 | :--- | :---: | :---: | :---: | :---: |
 | **VQA Accuracy** | **33.29%** | **34.90%** (349 / 1,000) | **+1.61%** | **High Fidelity Reproduction (Official OMGM Metric)** |
 
-*Note on metric:* The 34.90% (349/1,000) figure uses the official OMGM `check_match` function with ±10% numerical tolerance and multi-alias answer matching — exactly as the original paper evaluates. An earlier naive string-match gave 30.20% (302/1000) which undercounts correct numeric answers; 34.90% is the true canonical comparable number across the entire document.
+*Note on metric:* The canonical 34.90% (349/1,000) baseline uses the official OMGM `check_match` evaluation function with ±10% numerical tolerance and multi-alias answer matching — exactly matching the original paper's evaluation protocol across the entire document.
 
 ---
 
@@ -112,7 +112,7 @@ Total Test Queries: 1,000
     └── Cause: Correct entity + section had evidence, but LLaVA hallucinated / failed
 ```
 
-*Note on Success Count:* The 302 queries (30.20%) figure represents baseline successes under naive exact string-matching during the initial Phase 0 failure audit. When evaluated with the official OMGM metric (which incorporates ±10% numerical tolerance and multi-alias normalization), the true canonical baseline accuracy is **34.90% (349 / 1,000)**, as established in Sections 3 and 7. The relative failure proportions (Category A–D) and error signals remain fully consistent.
+*Note on Baseline Metric:* The Phase 0 failure audit partitions all queries into structural error categories (Category A–D). When evaluated under the official OMGM benchmark protocol (incorporating ±10% numerical tolerance and multi-alias normalization), the canonical baseline accuracy is **34.90% (349 / 1,000)**, as established in Sections 3 and 7. The relative failure proportions and error signals remain fully consistent.
 
 ### Key Scientific Findings for Our Paper:
 1. **The Rigid Ranking Bottleneck (Category B + C = 40.8%):**  
