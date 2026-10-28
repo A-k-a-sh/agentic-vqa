@@ -73,7 +73,7 @@ State-of-the-art architectures like OMGM~\cite{omgm2025} address this with a seq
 \begin{figure*}[t]
 \centering
 \includegraphics[width=0.98\linewidth]{figs/fig0_architecture_diagram}
-\caption{System architecture of Adaptive Agentic Retrieval. Confident queries ($\Delta = S_1 - S_2 \ge \tau = 0.025$) follow the Fast-Path through coarse search, multimodal reranking, and BGE section selection directly to answer generation with zero computational overhead. Ambiguous queries ($\Delta < \tau$) activate the rule-based agent controller, triggering symmetric PEFT visual verification to arbitrate between top candidates and dynamically expanding multi-section evidence before answer synthesis.}
+\caption{System architecture of Adaptive Agentic Retrieval. Confident queries ($\Delta = S_1 - S_2 \ge \tau = 0.025$) follow the Fast-Path through coarse search, multimodal reranking, and BGE section selection directly to answer generation with zero computational overhead. Ambiguous queries ($\Delta < \tau$) activate the rule-based agent controller, triggering symmetric PEFT visual verification to arbitrate between top candidates: switching to the second-ranked candidate (targeting entity reranking errors) or confirming the top candidate with expanded multi-section evidence (targeting section omission errors) before answer synthesis.}
 \label{fig:architecture}
 \end{figure*}
 
