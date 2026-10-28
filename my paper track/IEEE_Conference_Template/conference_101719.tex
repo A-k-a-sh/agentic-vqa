@@ -280,11 +280,11 @@ The reproduction confirms: (1) Our coarse retrieval ceiling (Recall@20) reached 
 \subsection{Main Benchmark Results and Ablations}
 Table~\ref{tab:main_results} reports comparative performance across 1,000 InfoSeek test queries under strict zero ground-truth leakage:
 (1)~\textbf{Error Recovery Demonstration:} In our unified 13B model, recoveries reach \textbf{44 gross queries}, demonstrating that retrieval failures in rigid pipelines stem from premature filtering and that adaptive branching effectively recovers them. Crucially, baseline and agent share \textbf{92.6\% concordance} (926 invariant predictions on identical query pairs). The net +1.40\% gain is driven by 44 recoveries against 30 degradations (59.5\% win-rate on discordant pairs; paired bootstrap 90\% CI: $[0.00\%, +2.80\%]$), with gains concentrated in the targeted ambiguous zone ($25.39\% \to 28.15\%$).
-(2)~\textbf{Zero-Shot Adjudication Failure:} Unadapted models exhibit decision win-rates between 45.6\% and 47.2\%---resembling random guessing. Scaling to 13B without calibration produces a net loss of -7 queries.
+(2)~\textbf{Zero-Shot Adjudication Failure:} Unadapted models exhibit decision win-rates between 45.6\% and 50.0\%---resembling a random coin flip (e.g., 38 recoveries vs. 38 degradations on 7B permissive). Under conservative bidirectional gating, 7B suppresses switching (only 2 flips) due to 96\% Option-A primacy bias, while 13B incurs a net loss of -7 queries.
 (3)~\textbf{Consistent Gain via Symmetric PEFT:} Fine-tuning with symmetric LoRA ($r=16$) reverses the negative trajectory at both scales. On 7B, it achieves a 62.8\% win-rate and +11 net queries (+1.10\%). On 13B, it transforms a -7 query deficit into a +7 surplus (+14 query turnaround).
 
 \begin{table}[!htbp]
-\caption{Main Results Across 1,000 InfoSeek Test Queries. (Acc.: Overall VQA accuracy; Rec.: Rescued queries (baseline incorrect $\to$ agent correct); Deg.: Degraded queries; Net: Net query delta; Win\%: Decision win-rate on flipped predictions. Zero-shot 13B evaluated under Permissive [switching on either order preference] and Conservative [requiring bidirectional preference] rules.)}
+\caption{Main Results Across 1,000 InfoSeek Test Queries. (Acc.: Overall VQA accuracy; Rec.: Rescued queries (baseline incorrect $\to$ agent correct); Deg.: Degraded queries; Net: Net query delta; Win\%: Decision win-rate on flipped predictions. Zero-shot models evaluated under Permissive [switching on either order preference] and Conservative [requiring bidirectional preference] rules.)}
 \label{tab:main_results}
 \centering
 \resizebox{\columnwidth}{!}{%
@@ -293,7 +293,8 @@ Table~\ref{tab:main_results} reports comparative performance across 1,000 InfoSe
 \textbf{Model \& Controller Configuration} & \textbf{Acc.} & \textbf{Rec.} & \textbf{Deg.} & \textbf{Net} & \textbf{Win\%} \\
 \midrule
 OMGM Baseline (Rigid Pipeline)~\cite{omgm2025} & 34.90\% & 0 & 0 & --- & --- \\
-Zero-Shot LLaVA-1.5-7B & 34.90\% & 1 & 1 & +0 & 50.0\% \\
+Zero-Shot LLaVA-1.5-7B (Permissive) & 34.90\% & 38 & 38 & +0 & 50.0\% \\
+Zero-Shot LLaVA-1.5-7B (Conservative) & 34.90\% & 1 & 1 & +0 & 50.0\% \\
 Zero-Shot LLaVA-1.5-13B (Permissive) & 34.20\% & 37 & 44 & -7 & 45.6\% \\
 Zero-Shot LLaVA-1.5-13B (Conservative) & 34.70\% & 17 & 19 & -2 & 47.2\% \\
 \midrule
