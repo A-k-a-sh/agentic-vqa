@@ -218,7 +218,7 @@ def plot_figure_2():
                 bbox=dict(boxstyle='round,pad=0.22', facecolor='#E3F2FD', edgecolor='#90CAF9', alpha=0.9),
                 arrowprops=dict(arrowstyle='->', color='#0D47A1', lw=1.2))
 
-    ax.annotate('16.3x Bias Drop\n(21.7% -> 1.33%)', 
+    ax.annotate('16.3x Bias Drop\n(21.67% -> 1.33%)', 
                 xy=(1 + width/2, 8.0), xytext=(1.0, 48.0),
                 ha='center', fontsize=7.2, weight='bold', color='#0D47A1',
                 bbox=dict(boxstyle='round,pad=0.22', facecolor='#E3F2FD', edgecolor='#90CAF9', alpha=0.9),
