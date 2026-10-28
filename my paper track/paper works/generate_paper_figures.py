@@ -96,39 +96,45 @@ def save_figure(fig, base_filename):
 # ===========================================================================
 def plot_figure_1():
     print("Generating Figure 1: Failure Taxonomy and Score-Margin Distribution...")
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.5, 3.2), gridspec_kw={'width_ratios': [1.0, 1.25]})
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.5, 3.8), gridspec_kw={'width_ratios': [1.0, 1.25]})
 
     # --- Panel A: Donut Chart of Failure Taxonomy ---
-    labels = [
-        'Baseline Success\n(34.9%, 349)',
-        'Cat A: Retrieval Ceiling\n(15.3%, 153)',
-        'Cat B: Entity Rerank Confusion\n(20.5%, 205)',
-        'Cat C: Section Selection Error\n(20.3%, 203)',
-        'Cat D: Generator Reasoning\n(13.7%, 137)'
+    # Sizes reflect the paper's stated percentages (each is count/1000).
+    # autopct is intentionally omitted: matplotlib would silently renormalize
+    # these to sum-to-100 and display wrong numbers. All correct values are
+    # carried in the legend instead.
+    legend_labels = [
+        'Baseline Success (34.9%, 349)',
+        'Cat A: Retrieval Ceiling (15.3%, 153)',
+        'Cat B: Entity Rerank Error (20.5%, 205)',
+        'Cat C: Section Omission (20.3%, 203)',
+        'Cat D: Generator Failure (13.7%, 137)'
     ]
     sizes = [34.9, 15.3, 20.5, 20.3, 13.7]
     colors = ['#2E7D32', '#C62828', '#1565C0', '#6A1B9A', '#E65100']
     explode = (0.02, 0.02, 0.06, 0.06, 0.02)  # Explode Cat B and Cat C
 
-    wedges, texts, autotexts = ax1.pie(
-        sizes, 
-        explode=explode, 
-        colors=colors, 
-        autopct='%1.1f%%',
-        pctdistance=0.77,
+    # No autopct: avoids displaying matplotlib-renormalized (wrong) percentages
+    wedges, texts = ax1.pie(
+        sizes,
+        explode=explode,
+        colors=colors,
         startangle=140,
         wedgeprops=dict(width=0.42, edgecolor='white', linewidth=1.5)
     )
-    for autotext in autotexts:
-        autotext.set_color('white')
-        autotext.set_fontsize(7.5)
-        autotext.set_weight('bold')
 
     # Central Callout Text
     ax1.text(0, 0, 'InfoSeek\n1,000 Queries\n\nCat B+C = 40.8%\n(Rigid Bottleneck)',
              ha='center', va='center', fontsize=6.8, weight='bold', color='#263238', linespacing=1.15)
 
     ax1.set_title('(a) Phase 0 Failure Taxonomy (OMGM)', pad=10)
+
+    # Fix Issue 2: Legend identifying color → category with correct paper values
+    ax1.legend(wedges, legend_labels,
+               loc='lower center', bbox_to_anchor=(0.5, -0.32),
+               fontsize=6.2, frameon=True, facecolor='white',
+               edgecolor='#CFD8DC', framealpha=0.95, ncol=1,
+               title='Query Partition (N = 1,000)', title_fontsize=6.5)
 
     # --- Panel B: Score Margin Distribution KDE ---
     sns.kdeplot(success_deltas, ax=ax2, color='#2E7D32', fill=True, alpha=0.35, 
