@@ -35,6 +35,7 @@
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 
 \begin{document}
+\bstctlcite{IEEEexample:BSTcontrol}
 
 \title{Adaptive Agentic Retrieval: Breaking the Rigid Pipeline Bottleneck in Knowledge-Based Visual Question Answering}
 
@@ -339,7 +340,6 @@ Adaptive Agentic Retrieval rescues queries failed by rigid baselines:
 \section{Conclusion}
 In this paper, we addressed the rigid feed-forward failure mode in Knowledge-Based Visual Question Answering. Auditing 1,000 InfoSeek queries over 100,000 Wikipedia articles, we revealed that 40.8\% of queries (62.7\% of pipeline errors) stem from premature pruning of valid candidates, accompanied by a sharp $2.9\times$ score margin collapse ($\Delta = 0.0448 \to 0.0157$). We presented Adaptive Agentic Retrieval, isolating ambiguous queries via a closed-form gating policy ($\tau = 0.025$). Uncovering severe zero-shot VLM positional primacy bias (21.67\%), we demonstrated that symmetric PEFT ($r=16$) mitigates positional bias to near-parity (1.33\%) and raises adjudication accuracy to 90.33\%. Furthermore, our scaling analysis revealed a $2 \times 2$ capacity-context interaction: 7B is Pareto-optimal for pairwise adjudication (+1.10\% net, 62.8\% win-rate), whereas 13B is necessary to resist distractor dilution during multi-section evidence expansion (+1.40\% net, 44 recoveries). Our unified framework achieves 36.30\% VQA accuracy on InfoSeek under strict zero ground-truth leakage, establishing a new state-of-the-art benchmark for adaptive multimodal retrieval.
 
-\bstctlcite{IEEEexample:BSTcontrol}
 \bibliographystyle{IEEEtran}
 \bibliography{refs}
 
