@@ -339,76 +339,8 @@ Adaptive Agentic Retrieval rescues queries failed by rigid baselines:
 \section{Conclusion}
 In this paper, we addressed the rigid feed-forward failure mode in Knowledge-Based Visual Question Answering. Auditing 1,000 InfoSeek queries over 100,000 Wikipedia articles, we revealed that 40.8\% of queries (62.7\% of pipeline errors) stem from premature pruning of valid candidates, accompanied by a sharp $2.9\times$ score margin collapse ($\Delta = 0.0448 \to 0.0157$). We presented Adaptive Agentic Retrieval, isolating ambiguous queries via a closed-form gating policy ($\tau = 0.025$). Uncovering severe zero-shot VLM positional primacy bias (21.67\%), we demonstrated that symmetric PEFT ($r=16$) mitigates positional bias to near-parity (1.33\%) and raises adjudication accuracy to 90.33\%. Furthermore, our scaling analysis revealed a $2 \times 2$ capacity-context interaction: 7B is Pareto-optimal for pairwise adjudication (+1.10\% net, 62.8\% win-rate), whereas 13B is necessary to resist distractor dilution during multi-section evidence expansion (+1.40\% net, 44 recoveries). Our unified framework achieves 36.30\% VQA accuracy on InfoSeek under strict zero ground-truth leakage, establishing a new state-of-the-art benchmark for adaptive multimodal retrieval.
 
-\begin{thebibliography}{22}
-\footnotesize
-\setlength{\itemsep}{0.3pt plus 0.2pt minus 0.2pt}
-
-\bibitem{okvqa}
-K.~Marino \textit{et~al.}, ``OK-VQA: A visual question answering benchmark requiring external knowledge,'' in \textit{Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR)}, 2019, pp. 3195--3204.
-
-\bibitem{infoseek}
-Z.~Yang \textit{et~al.}, ``InfoSeek: A dataset for information-seeking questions with large-scale knowledge,'' in \textit{Proc. Conf. Empirical Methods Natural Lang. Process. (EMNLP)}, 2023, pp. 8948--8965.
-
-\bibitem{oven}
-H.~Hu \textit{et~al.}, ``Open-domain visual entity recognition: Towards recognizing millions of Wikipedia entities,'' in \textit{Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR)}, 2023, pp. 12046--12055.
-
-\bibitem{lewis2020rag}
-P.~Lewis \textit{et~al.}, ``Retrieval-augmented generation for knowledge-intensive NLP tasks,'' in \textit{Proc. Adv. Neural Inf. Process. Syst. (NeurIPS)}, vol.~33, 2020, pp. 9459--9474.
-
-\bibitem{omgm2025}
-C.~Lin \textit{et~al.}, ``OMGM: Orchestrate multiple granularities and modalities for efficient multimodal retrieval,'' in \textit{Proc. 63rd Annu. Meeting Assoc. Comput. Linguistics (ACL)}, 2025, pp. 1--12.
-
-\bibitem{clip}
-A.~Radford \textit{et~al.}, ``Learning transferable visual models from natural language supervision,'' in \textit{Proc. 38th Int. Conf. Mach. Learn. (ICML)}, 2021, pp. 8748--8763.
-
-\bibitem{blip2}
-J.~Li \textit{et~al.}, ``BLIP-2: Bootstrapping language-image pre-training with frozen large language models and bimodal encoders,'' in \textit{Proc. 40th Int. Conf. Mach. Learn. (ICML)}, 2023, pp. 19730--19742.
-
-\bibitem{llava15}
-H.~Liu \textit{et~al.}, ``Improved baselines with visual instruction tuning,'' in \textit{Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR)}, 2024, pp. 26296--26306.
-
-\bibitem{vqa_v2}
-Y.~Goyal \textit{et~al.}, ``Making the V in VQA matter: Elevating the role of image understanding in Visual Question Answering,'' in \textit{Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)}, 2017, pp. 6904--6913.
-
-\bibitem{aokvqa}
-D.~Schwenk \textit{et~al.}, ``A-OKVQA: A benchmark for visual question answering using world knowledge,'' in \textit{Proc. Eur. Conf. Comput. Vis. (ECCV)}, 2022, pp. 146--162.
-
-\bibitem{bge_reranker}
-J.~Chen \textit{et~al.}, ``BGE M3-embedding: Multi-lingual, multi-functionality, multi-granularity text embeddings through self-knowledge distillation,'' \textit{arXiv:2402.03216}, 2024.
-
-\bibitem{selfrag}
-A.~Asai \textit{et~al.}, ``Self-RAG: Learning to retrieve, generate, and critique through self-reflection,'' in \textit{Proc. 12th Int. Conf. Learn. Represent. (ICLR)}, 2024.
-
-\bibitem{crag}
-S.-Q.~Yan \textit{et~al.}, ``Corrective retrieval augmented generation,'' \textit{arXiv:2401.15884}, 2024.
-
-\bibitem{adaptiverag}
-S.~Jeong \textit{et~al.}, ``Adaptive-RAG: Determining when and how to retrieve for knowledge-intensive language models,'' in \textit{Proc. Conf. North Amer. Chapter Assoc. Comput. Linguistics (NAACL)}, 2024, pp. 798--812.
-
-\bibitem{jiang2023flare}
-Z.~Jiang \textit{et~al.}, ``Active retrieval augmented generation,'' in \textit{Proc. Conf. Empirical Methods Natural Lang. Process. (EMNLP)}, 2023, pp. 7969--7992.
-
-\bibitem{react}
-S.~Yao \textit{et~al.}, ``ReAct: Synergizing reasoning and acting in language models,'' in \textit{Proc. 11th Int. Conf. Learn. Represent. (ICLR)}, 2023.
-
-\bibitem{toolformer}
-T.~Schick \textit{et~al.}, ``Toolformer: Language models can teach themselves to use tools,'' in \textit{Proc. Adv. Neural Inf. Process. Syst. (NeurIPS)}, vol.~36, 2023, pp. 68539--68551.
-
-\bibitem{primacy_bias}
-P.~Wang \textit{et~al.}, ``Large language models are not fair evaluators,'' in \textit{Proc. 62nd Annu. Meeting Assoc. Comput. Linguistics (ACL)}, 2024, pp. 9440--9450.
-
-\bibitem{peiss_order_bias}
-P.~Pezeshkpour and E.~Hruschka, ``Large language models sensitivity to the order of options in multiple-choice questions,'' in \textit{Findings of Assoc. Comput. Linguistics: NAACL 2024}, 2024, pp. 2019--2034.
-
-\bibitem{lora}
-E.~J.~Hu \textit{et~al.}, ``LoRA: Low-rank adaptation of large language models,'' in \textit{Proc. 10th Int. Conf. Learn. Represent. (ICLR)}, 2022.
-
-\bibitem{qlora}
-T.~Dettmers \textit{et~al.}, ``QLoRA: Efficient finetuning of quantized LLMs,'' in \textit{Proc. Adv. Neural Inf. Process. Syst. (NeurIPS)}, vol.~36, 2023, pp. 10088--10115.
-
-\bibitem{liu2024lost}
-N.~F.~Liu \textit{et~al.}, ``Lost in the middle: How language models use long contexts,'' \textit{Trans. Assoc. Comput. Linguistics}, vol.~12, pp. 157--173, 2024.
-
-\end{thebibliography}
+\bstctlcite{IEEEexample:BSTcontrol}
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
 
 \end{document}
