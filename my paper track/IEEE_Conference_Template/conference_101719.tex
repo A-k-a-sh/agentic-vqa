@@ -143,19 +143,7 @@ The empirical taxonomy in Fig.~\ref{fig:failure_taxonomy} reveals critical findi
 \subsection{System Architecture and Confidence-Gated Policy}
 Let $\mathcal{C}_{top20} = \{e_1, e_2, \dots, e_{20}\}$ denote candidates retrieved in Step~1. In Step~2, the multimodal reranker scores each candidate $e_i \in \mathcal{C}_{top20}$ using cross-attention fusion over query image $I_q$, candidate entity images, and section texts, generating multimodal scores $S(e_i \mid q)$.
 
-Let $e_{(1)}$ and $e_{(2)}$ denote the top-two candidates sorted by descending score ($S_1 \ge S_2$). Adaptive Agentic Retrieval dynamically determines routing based on the intrinsic score margin $\Delta$:
-\begin{equation}
-\Delta = S_1 - S_2.
-\end{equation}
-Our control policy $\pi(q)$ is defined as a closed-form deterministic gating policy:
-\begin{equation}
-\pi(q) = \begin{cases}
-\text{Fast-Path}(e_{(1)}), & \text{if } \Delta \ge \tau \\
-\text{Agentic-Branch}(e_{(1)}, e_{(2)}, q), & \text{if } \Delta < \tau
-\end{cases}
-\label{eq:policy}
-\end{equation}
-where $\tau = 0.025$. Confident queries ($\Delta \ge 0.025$, 49.2\% of the benchmark) proceed with zero latency overhead. Ambiguous queries ($\Delta < 0.025$, 50.8\% of queries) enter the agentic verification loop.
+Let $e_{(1)}$ and $e_{(2)}$ denote the top-two candidates sorted by descending score ($S_1 \ge S_2$). Adaptive Agentic Retrieval dynamically determines routing based on the intrinsic score margin $\Delta = S_1 - S_2$. Our control policy $\pi(q)$ is defined as a closed-form deterministic gating policy: $\pi(q) = \text{Fast-Path}(e_{(1)})$ if $\Delta \ge \tau$ (49.2\% of queries, zero compute overhead), and $\pi(q) = \text{Agentic-Branch}(e_{(1)}, e_{(2)}, q)$ if $\Delta < \tau$, where $\tau = 0.025$ triggers dynamic visual verification on ambiguous queries (50.8\% of benchmark).
 
 \begin{figure}[!htbp]
 \centering
@@ -199,12 +187,7 @@ To prevent cross-task parameter interference and maintain base model open-ended 
 
 When triggered on ambiguous queries ($\Delta < 0.025$), the controller executes two branches:
 \textbf{Candidate Switching Branch (Targeting Entity Errors):} The verifier inspects $I_q$ against $e_{(1)}$ and $e_{(2)}$. If it selects $e_{(2)}$, routing dynamically switches to $e_{(2)}$ and retrieves its top evidence section $\mathcal{S}(e_{(2)})$.
-\textbf{Evidence Expansion Branch (Targeting Section Omissions):} If the verifier confirms $e_{(1)}$, the entity is visually validated, indicating a potential section omission. The controller expands the context by concatenating Candidate 1's Top-1 and Top-2 sections:
-\begin{equation}
-\mathcal{T}_{expanded} = \mathcal{S}_1(e_{(1)}) \oplus \Delta_{sep} \oplus \mathcal{S}_2(e_{(1)})
-\label{eq:context_expansion}
-\end{equation}
-where $\Delta_{sep}$ denotes a section delimiter token (e.g., \texttt{"\textbackslash n---\textbackslash n"}). The complete policy is formalized in Algorithm~\ref{alg:controller}.
+\textbf{Evidence Expansion Branch (Targeting Section Omissions):} If the verifier confirms $e_{(1)}$, the entity is validated, indicating a potential section omission. The controller expands context by concatenating Candidate 1's Top-1 and Top-2 sections: $\mathcal{T}_{expanded} = \mathcal{S}_1(e_{(1)}) \oplus \Delta_{sep} \oplus \mathcal{S}_2(e_{(1)})$, where $\Delta_{sep}$ is a section delimiter token (e.g., \texttt{"\textbackslash n---\textbackslash n"}). The complete policy is formalized in Algorithm~\ref{alg:controller}.
 
 \begin{algorithm}[!htbp]
 \caption{Adaptive Agentic Retrieval Decision Policy}
@@ -239,9 +222,7 @@ where $\Delta_{sep}$ denotes a section delimiter token (e.g., \texttt{"\textback
 \section{Experiments and Empirical Evaluation}
 
 \subsection{Experimental Setup and Benchmark Lineage}
-Experiments use the complete, unpruned \textbf{100,000-article Wikipedia knowledge base}, encompassing over 20,199 candidate Wikipedia entity images (91.15\% visual coverage). Evaluation is performed on a fixed split of 1,000 queries sampled from the InfoSeek test benchmark~\cite{infoseek}, comprising 983 unique query images (17 shared, 0 missing).
-
-Coarse retrieval utilizes CLIP ViT-B/32~\cite{clip} indexing entity summaries with FAISS. Multimodal reranking executes pretrained Q-Former IT2IT cross-attention~\cite{blip2, omgm2025} ($\alpha = 0.9$). Passage selection deploys $\mathtt{BAAI/bge\text{-}reranker\text{-}v2\text{-}m3}$ fused with Step 2 similarities ($\beta = 0.2$). Generation and verification employ $\mathtt{llava\text{-}1.5\text{-}7b\text{-}hf}$ and $\mathtt{llava\text{-}1.5\text{-}13b\text{-}hf}$~\cite{llava15} loaded under 4-bit NormalFloat (NF4) quantization on 2$\times$ NVIDIA Tesla T4 GPUs (16GB VRAM each). Evaluation uses official OMGM metrics ($\mathtt{check\_match}$) with multi-alias normalization and $\pm 10\%$ numerical tolerance. The official OMGM protocol establishes the canonical baseline at \textbf{34.90\%} (349 / 1,000 queries).
+Experiments evaluate on the unpruned \textbf{100,000-article Wikipedia knowledge base} (20,199 entity images, 91.15\% visual coverage) across 1,000 InfoSeek test queries~\cite{infoseek} (983 unique images). Coarse search uses CLIP ViT-B/32~\cite{clip} with FAISS, multimodal reranking uses Q-Former cross-attention~\cite{blip2, omgm2025} ($\alpha = 0.9$), passage scoring uses BGE-reranker-v2-m3~\cite{bge_reranker} ($\beta = 0.2$), and answer generation deploys LLaVA-1.5 (7B/13B)~\cite{llava15} under 4-bit NF4 quantization on $2\times$ NVIDIA Tesla T4 GPUs. Evaluation adheres strictly to official OMGM metrics ($\mathtt{check\_match}$) with multi-alias normalization and $\pm 10\%$ numerical tolerance (canonical baseline: \textbf{34.90\%}, 349/1,000 queries).
 
 \subsection{High-Fidelity Baseline Reproduction}
 We reproduced all three stages of OMGM~\cite{omgm2025}. Table~\ref{tab:reproduction_comparison} presents the comparison across 1,000 test queries over the intact 100k Wikipedia corpus.
@@ -274,7 +255,7 @@ VQA Accuracy & 33.29\% & \textbf{34.90\%} (349/1k) & \textbf{+1.61\%} \\
 }
 \end{table}
 
-The reproduction confirms: (1) Our coarse retrieval ceiling (Recall@20) reached \textbf{83.40\%}, within 1.40\% of the OMGM paper's 84.8\%. (2) Step~2 reranking achieves a \textbf{+9.60\% precision jump} in Recall@1 (49.50\% to 59.10\%). (3) Step~3 achieves \textbf{34.90\% VQA accuracy}, matching the official OMGM benchmark.
+Reproduction confirms: Recall@20 reaches \textbf{83.40\%} (within 1.40\% of OMGM), Step~2 yields a \textbf{+9.60\% precision jump} in Recall@1 (49.50\% $\to$ 59.10\%), and Step~3 achieves \textbf{34.90\% VQA accuracy}, matching official benchmark parity.
 
 \subsection{Main Benchmark Results and Ablations}
 Table~\ref{tab:main_results} reports comparative performance across 1,000 InfoSeek test queries under strict zero ground-truth leakage (all routing, verification, and expansion decisions are executed dynamically without oracle labels, entity supervision, or ground-truth answers):
