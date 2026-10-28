@@ -22,14 +22,17 @@
 \renewcommand{\dbltopfraction}{0.95}
 \renewcommand{\dblfloatpagefraction}{0.85}
 
-\setlength{\textfloatsep}{5pt plus 2pt minus 2pt}
-\setlength{\dbltextfloatsep}{6pt plus 2pt minus 2pt}
-\setlength{\floatsep}{4pt plus 2pt minus 2pt}
-\setlength{\dblfloatsep}{4pt plus 2pt minus 2pt}
+\setlength{\textfloatsep}{4pt plus 1pt minus 1pt}
+\setlength{\dbltextfloatsep}{4pt plus 1pt minus 1pt}
+\setlength{\floatsep}{3pt plus 1pt minus 1pt}
+\setlength{\dblfloatsep}{3pt plus 1pt minus 1pt}
 \setlength{\abovecaptionskip}{3pt}
 \setlength{\belowcaptionskip}{0pt}
-\setlength{\abovedisplayskip}{3pt plus 1pt minus 1pt}
-\setlength{\belowdisplayskip}{3pt plus 1pt minus 1pt}
+\setlength{\abovedisplayskip}{2pt plus 1pt minus 1pt}
+\setlength{\belowdisplayskip}{2pt plus 1pt minus 1pt}
+
+% Tighten IEEE bibliography vertical separation without changing font size
+\def\IEEEbibitemsep{0.5pt plus 0.5pt}
 
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
@@ -119,17 +122,13 @@ We reproduced OMGM~\cite{omgm2025} under standardized conditions on 1,000 InfoSe
 \end{figure}
 
 \subsection{Empirical Failure Taxonomy and Bottleneck Analysis}
-We executed an exhaustive failure audit across all 1,000 test queries, tracing candidate lineage across every stage. Tracing candidates partitions the benchmark as follows:
-\begin{itemize}\setlength{\itemsep}{1pt plus 0.5pt}\setlength{\topsep}{1.5pt plus 0.5pt}\setlength{\parsep}{0pt}
-    \item \textbf{Canonical Baseline Success (34.90\%, 349 queries):} Correct entity and relevant evidence section identified; correct factual answer produced under official benchmark metrics (incorporating $\pm 10\%$ numerical tolerance and multi-alias normalization).
-    \item \textbf{Failure Taxonomy (Audited over 698 initial non-matching queries, 69.8\%):} Tracing candidate lineage across stages partitions errors into:
-    \begin{itemize}\setlength{\itemsep}{0.5pt plus 0.5pt}\setlength{\topsep}{1pt plus 0.5pt}\setlength{\parsep}{0pt}
-        \item \textbf{Category A (Retrieval Ceiling: 153 queries, 15.3\%):} Ground-truth entity absent from the top-20 coarse retrieval pool.
-        \item \textbf{Category B (Entity Reranking Error: 205 queries, 20.5\%):} Correct entity retrieved in top-20, but Step 2 ranked an incorrect candidate at rank~1.
-        \item \textbf{Category C (Section Selection Error: 203 queries, 20.3\%):} Correct entity ranked at rank~1, but Step 3 selected a passage omitting requisite factual evidence.
-        \item \textbf{Category D (Generator Reasoning Error: 137 queries, 13.7\%):} Both correct entity and evidence section provided, but generator hallucinated or failed.
-    \end{itemize}
-\end{itemize}
+We executed an exhaustive failure audit across all 1,000 test queries, tracing candidate lineage across every stage:
+(1)~\textbf{Canonical Baseline Success (34.90\%, 349 queries):} Correct entity and evidence section identified; correct factual answer produced under official benchmark metrics ($\pm 10\%$ numerical tolerance and multi-alias normalization).
+(2)~\textbf{Failure Taxonomy (651 failures under official metrics, 698 unnormalized):} Tracing candidate lineage partitions errors into four disjoint categories:
+\textbf{Category A (Retrieval Ceiling, 153 queries, 15.3\%):} Ground-truth entity absent from the top-20 coarse retrieval pool.
+\textbf{Category B (Entity Reranking Error, 205 queries, 20.5\%):} Correct entity retrieved in top-20, but Step 2 ranked an incorrect candidate at rank~1.
+\textbf{Category C (Section Selection Error, 203 queries, 20.3\%):} Correct entity ranked at rank~1, but Step 3 selected a passage omitting requisite factual evidence.
+\textbf{Category D (Generator Reasoning Error, 137 queries, 13.7\%):} Both correct entity and evidence section provided, but generator hallucinated or failed.
 Under exact string matching, the baseline succeeds on 302 queries with 698 failures ($153+205+203+137$). Multi-alias and tolerance normalization resolves 47 numeric instances to establish the canonical 349 successes (651 failures), confirming that candidate-retention errors (Categories B+C = 408) comprise 62.7\% of all failures.
 
 \subsection{Key Scientific Insights and Observations}
@@ -284,7 +283,7 @@ Table~\ref{tab:main_results} reports comparative performance across 1,000 InfoSe
 (3)~\textbf{Consistent Gain via Symmetric PEFT:} Fine-tuning with symmetric LoRA ($r=16$) reverses the negative trajectory at both scales. On 7B, it achieves a 62.8\% win-rate and +11 net queries (+1.10\%). On 13B, it transforms a -7 query deficit into a +7 surplus (+14 query turnaround).
 
 \begin{table}[!htbp]
-\caption{Main Results Across 1,000 InfoSeek Test Queries. (Acc.: Overall VQA accuracy; Rec.: Rescued queries (baseline incorrect $\to$ agent correct); Deg.: Degraded queries; Net: Net query delta; Win\%: Decision win-rate on flipped predictions. Zero-shot models evaluated under Permissive [switching on either order preference] and Conservative [requiring bidirectional preference] rules.)}
+\caption{Main Results Across 1,000 InfoSeek Test Queries. (Acc.: Overall VQA accuracy; Rec.: Rescued queries; Deg.: Degraded queries; Net: Net delta; Win\%: Win-rate on flipped predictions. Zero-shot models evaluated under Permissive and Conservative bidirectional rules.)}
 \label{tab:main_results}
 \centering
 \resizebox{\columnwidth}{!}{%
@@ -321,22 +320,22 @@ Our benchmark across model scales (7B vs. 13B) and recovery formulations (Catego
 
 \subsection{Qualitative Analysis and Rescued Case Studies}
 Adaptive Agentic Retrieval exhibits representative recovery and degradation behaviors:
-(1)~\textit{Geographical ($\mathtt{00000477}$):} For lake outflow, OMGM predicted Lake Z{\"u}rich ($\Delta = 0.009$); visual verification switched to \textit{Lake Lucerne}, yielding ``\textbf{Reuss}'' (Ground Truth: \textit{Reuss River}) $\to$ \textbf{[Recovered]}.
-(2)~\textit{Attribution ($\mathtt{00044711}$):} For bridge designer, OMGM selected Myslbek; verifier identified \textit{Franz Joseph Bridge}, recovering ``\textbf{Rowland Mason Ordish}'' $\to$ \textbf{[Recovered]}.
-(3)~\textit{Morphology (Cat C, $\mathtt{00000289}$):} For bird wingspan, OMGM hallucinated ``132''; context expansion yielded ``\textbf{1.32 meters}'' $\to$ \textbf{[Recovered]}.
-(4)~\textit{Nomenclature (Cat C, $\mathtt{00071549}$):} For mountain naming, OMGM predicted ``Denali''; Section 2 naming text produced ``\textbf{William McKinley}'' $\to$ \textbf{[Recovered]}.
-(5)~\textit{Visual Sibling Distractor (Degradation, $\mathtt{00005373}$):} For Kazan Kremlin's region (Ground Truth: \textit{Tatarstan}), the baseline was correct. Visual resemblance to Tobolsk Kremlin led the verifier to switch to \textit{Tobolsk}, yielding ``\textbf{Tyumen Oblast}'' $\to$ \textbf{[Degraded]}.
+(1)~\textit{Geographical ($\mathtt{00000477}$):} For lake outflow, OMGM predicted Lake Z{\"u}rich ($\Delta = 0.009$); verifier switched to \textit{Lake Lucerne}, yielding ``\textbf{Reuss}'' (GT: \textit{Reuss River}) $\to$ \textbf{[Recovered]}.
+(2)~\textit{Attribution ($\mathtt{00044711}$):} For bridge designer, OMGM picked Myslbek; verifier identified \textit{Franz Joseph Bridge}, recovering ``\textbf{Rowland Mason Ordish}'' $\to$ \textbf{[Recovered]}.
+(3)~\textit{Morphology (Cat C, $\mathtt{00000289}$):} For bird wingspan, OMGM hallucinated ``132''; context expansion yielded ``\textbf{1.32 meters}'' (GT: 1.34) $\to$ \textbf{[Recovered]}.
+(4)~\textit{Nomenclature (Cat C, $\mathtt{00071549}$):} For mountain naming, OMGM predicted ``Denali''; Section 2 text produced ``\textbf{William McKinley}'' $\to$ \textbf{[Recovered]}.
+(5)~\textit{Visual Sibling Distractor (Degradation, $\mathtt{00005373}$):} For Kazan Kremlin's region (GT: \textit{Tatarstan}), baseline was correct. Visual resemblance to Tobolsk Kremlin led the verifier to switch to \textit{Tobolsk}, yielding ``\textbf{Tyumen Oblast}'' $\to$ \textbf{[Degraded]}.
 
 
 \section{Discussion, Generalization, and Limitations}
 
-\textbf{Data Disjointness \& Generalization:} Our audit between 6,000 fine-tuning pairs ($\mathcal{D}_{sym}$, OVEN) and 1,000 InfoSeek test queries establishes: (1) \textbf{100\% strict image disjointness} (0/983 test images seen during training); (2) \textbf{88.0\% entity disjointness} (528/600 unique test entities absent as training targets); and (3) \textbf{Generalization transfer}: \textbf{85.19\%} (23/27) of 7B and \textbf{90.91\%} (40/44) of 13B rescued queries involve completely unseen entities, confirming that symmetric LoRA generalizes as an open-world visual adjudicator rather than memorizing training entity identities.
+\textbf{Data Disjointness \& Generalization:} Our audit between 6,000 fine-tuning pairs ($\mathcal{D}_{sym}$, OVEN) and 1,000 InfoSeek test queries establishes: (1) \textbf{100\% image disjointness} (0/983 test images seen in training); (2) \textbf{88.0\% entity disjointness} (528/600 unique test entities absent in training); and (3) \textbf{Generalization transfer}: \textbf{85.19\%} (23/27) of 7B and \textbf{90.91\%} (40/44) of 13B rescued queries involve completely unseen entities, confirming that symmetric LoRA learns open-world visual adjudication rather than entity memorization.
 
 \textbf{Efficiency \& Deployment:}
-(1) Fast-Path gating ($\tau = 0.025$) routes 49.2\% of queries with zero extra compute. (2) The controller averages only \textbf{1.51 generator calls per query}. (3) Dual Tesla T4 latency is 1.65s (7B) and 3.14s (unified 13B). (4) Under 4-bit NF4 double quantization, peak VRAM is $\sim$\textbf{4.1\,GB per GPU}, demonstrating deployment feasibility on accessible commodity GPU hardware without requiring multi-node enterprise compute clusters.
+(1) Fast-Path gating ($\tau = 0.025$) routes 49.2\% of queries with zero extra compute. (2) The controller averages only \textbf{1.51 generator calls per query}. (3) Dual Tesla T4 latency is 1.65s (7B) and 3.14s (unified 13B). (4) Under 4-bit NF4 quantization, peak VRAM is $\sim$\textbf{4.1\,GB per GPU}, confirming practical deployment on commodity edge GPUs.
 
 \textbf{Limitations \& Future Work:}
-(1) \textit{Category A Retrieval Ceiling (15.30\%):} In 153 queries, ground-truth entities are absent from Step~1 coarse retrieval, bounding reranking recovery; future work will explore iterative multi-query search. (2) \textit{Ultra-Large Scaling (70B+):} Extending agentic routing to 70B+ models may support multi-document reasoning over noisy passages.
+(1) \textit{Category A Retrieval Ceiling (15.30\%):} In 153 queries, ground-truth entities are absent from Step~1 coarse retrieval, bounding reranking recovery; future work will explore iterative search queries. (2) \textit{Ultra-Large Scaling (70B+):} Extending agentic routing to larger backbones to support multi-document reasoning across diverse knowledge domains.
 
 
 \section{Conclusion}
